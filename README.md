@@ -1,6 +1,6 @@
 # Race Control
 
-A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, a manual dare loop, and a local mock audience. OBS, the overlay, AI Game Master, and Rules Compiler come later.
+A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, a manual dare loop, and a local mock audience. The OBS overlay is available locally; automatic HUD reading, the AI Game Master, and Rules Compiler come later.
 
 ## Try it without Twitch
 
@@ -49,6 +49,20 @@ If you configured a different broadcaster login or port, substitute it in the cu
 
 Broadcaster permission compares the login case-insensitively in both modes. Mock mode deliberately trusts the submitted login so a demo can act as the streamer. HTTP 200 means input was accepted; commands without permission or in the wrong phase are silently ignored. Invalid users and text longer than 500 characters return HTTP 400.
 
+## OBS overlay
+
+1. Start `npm run mock` (no credentials), or `npm run dev` with Twitch authorization.
+2. In OBS, add a **Browser Source** using **http://localhost:3000/overlay**.
+3. Set **Width: 1920**, **Height: 1080**, and place it above your gameplay source.
+
+The page background is transparent. The top-left fan board, top-right dare and prediction cards, and bottom agent feed leave gameplay visible. Open the same URL in a browser to preview it; smaller viewports scale the whole 1920×1080 canvas proportionally.
+
+Snapshots arrive over `/overlay/ws` immediately, after Ledger writes, and once per second during active dares. Countdowns use server time. On a `tsx watch` restart the overlay reconnects automatically with backoff; a disconnected countdown freezes and shows a reconnect notice. Resolved dares retain their outcome and OVERRULED tag across restarts.
+
+The snapshot includes only public aggregates and fan logins/scores, never user IDs or individual vote/prediction maps. Both modes bind to `127.0.0.1`; `/mock/chat` exists only in mock mode. Replace port 3000 if you configured another `PORT`.
+
+The single HTML file uses the reference's Barlow Condensed, Inter, and JetBrains Mono fonts via Google Fonts, with local fallbacks if offline. No build step or frontend dependencies are needed.
+
 ## Ledger and restart behavior
 
 `.data/ledger.jsonl` stores `{ seq, at, agent, type, data }` records. State is derived only by pure `replay`: current dare and tallies, one-based winning option, progress, per-user fan scores, and the last 20 events. Ties (including no votes) select the lowest option number. A correct final prediction earns +1 per dare; overrules recalculate that score without double-crediting.
@@ -90,7 +104,7 @@ Both modes share `.data/ledger.jsonl`. Run only one process at a time. To reset 
 
    Wait for `Subscribed to channel.chat.message.` and `EventSub connected.`. Type `!ping` in the broadcaster's Twitch chat using an account other than the bot. It replies `pong`. `!race` replies `Race Control is online.` Unknown commands are ignored. Commands are exact and case-sensitive, with surrounding whitespace ignored.
 
-`npm start` runs once without watching files; both start scripts use `tsx`, so install development dependencies too. Press Ctrl+C to stop. `PORT` is used by the OAuth helper and, in mock mode, the local chat endpoint; no overlay or web UI is served yet. If changing the port, update both the redirect URI in `.env` and the Twitch app registration.
+`npm start` runs once without watching files; both start scripts use `tsx`, so install development dependencies too. Press Ctrl+C to stop. `PORT` is used by the OAuth helper and, in mock mode, the local chat endpoint; the overlay is served in both modes. If changing the port, update both the redirect URI in `.env` and the Twitch app registration.
 
 ## Authentication and transport
 

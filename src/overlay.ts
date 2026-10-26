@@ -1,0 +1,27 @@
+import type { RaceState } from './ledger.js';
+
+export function toOverlayView(state: RaceState, now: number) {
+  const dare = state.currentDare;
+  const votes = dare?.options.reduce((sum, option) => sum + option.tally, 0) ?? 0;
+  const predictions = Object.values(dare?.predictions ?? {});
+  const yes = predictions.filter(prediction => prediction.yes).length;
+  const no = predictions.length - yes;
+  const percent = (count: number, total: number) => total ? Math.round(count / total * 100) : 0;
+  const yesPercent = percent(yes, predictions.length);
+  // Explicit public fields only: never spread state, raw events, or user maps.
+  return {
+    serverNow: now,
+    dare: dare ? {
+      title: dare.title, status: dare.status,
+      options: dare.options.map(option => ({ title: option.title, tally: option.tally, percent: percent(option.tally, votes) })),
+      winner: dare.winner ?? null, progress: dare.progress, target: { stat: dare.target.stat, count: dare.target.count },
+      voteEndsAt: dare.voteEndsAt, dareEndsAt: dare.dareEndsAt,
+      success: dare.success ?? null, overruled: dare.overruled ?? false,
+    } : null,
+    predictions: { yes: { count: yes, percent: yesPercent }, no: { count: no, percent: predictions.length ? 100 - yesPercent : 0 } },
+    topFans: Object.values(state.fanScores).map(fan => ({ login: fan.login, score: fan.score }))
+      .sort((a, b) => b.score - a.score || (a.login < b.login ? -1 : a.login > b.login ? 1 : 0)).slice(0, 5),
+    agentStrip: state.agentStrip.map(item => ({ agent: item.agent, text: item.text })),
+    chatEventCount: state.chatEventCount,
+  };
+}

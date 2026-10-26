@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race Control · OBS overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--ink:#0B0D10;--text:#F2F4F7;--muted:#9AA3B2;--line:#262B34;--yellow:#FFC93C;--cyan:#4CC9F0;--orange:#FF8A3D}
+*{box-sizing:border-box}body{margin:0;background:transparent;color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+#stage{width:1920px;height:1080px;position:absolute;transform-origin:top left}
+.panel{background:rgba(11,13,16,.94)}.mono{font-family:'JetBrains Mono',monospace;font-weight:500}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:17px;letter-spacing:1.5px;color:var(--muted)}
+.heading{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;text-transform:uppercase}
+.badge{position:absolute;left:36px;top:36px;padding:9px 18px;background:var(--yellow);color:var(--ink);font-size:27px;letter-spacing:1.5px}
+.fans{position:absolute;left:36px;top:108px;width:402px;padding:18px 21px}.fans .eyebrow{font-size:16px;margin:0 0 18px}
+.fan{display:flex;align-items:center;gap:12px;margin:13px 0;font-size:21px}.rank{color:var(--muted);width:20px}.login{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.score{font-size:18px;color:var(--yellow)}.muted{color:var(--muted);font-size:18px;line-height:1.5}
+.right{position:absolute;right:36px;top:36px;width:558px;display:flex;flex-direction:column;gap:24px}
+.dare{padding:24px;box-shadow:inset 0 4px 0 var(--yellow);min-height:350px;display:flex;flex-direction:column;gap:18px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:16px}.accent{color:var(--yellow)}
+#phase{font-size:16px;color:var(--muted)}h1{font-size:45px;line-height:1.05;margin:0;overflow-wrap:anywhere}
+#idle{padding:18px 0}#idle p{margin:18px 0 0}.waiting{font-size:35px;line-height:1.2;text-transform:none}
+.option{margin:15px 0}.option .row{font-size:18px;line-height:1.5;margin-bottom:8px}.option-name{flex:1;overflow-wrap:anywhere}
+.track{height:12px;background:var(--line);overflow:hidden}.fill{height:100%;width:100%;transform-origin:left;transform:scaleX(0);background:var(--yellow);transition:transform .25s ease-out}
+#winner{font-size:23px;line-height:1.4;color:var(--text);margin:2px 0 18px}#progress{font-size:72px;line-height:1}
+#running .row{align-items:baseline;margin-bottom:18px}.clock{border-top:1px solid var(--line);padding-top:16px;margin-top:auto;font-size:18px}
+#countdown{font-size:25px;color:var(--yellow);font-variant-numeric:tabular-nums}#result{font-size:64px;line-height:1.1;padding:12px 0;color:var(--yellow)}
+#resolved.loss #result{color:var(--orange)}#overruled{display:inline-block;border:1px solid var(--orange);color:var(--orange);padding:7px 10px;font-size:16px;margin-top:12px}
+.predictions{padding:21px 24px;display:flex;flex-direction:column;gap:15px}.predictions .eyebrow{color:var(--cyan);font-size:16px}
+.prediction-bar{display:flex;height:42px;background:var(--line)}#yes-bar{background:var(--cyan)}#no-bar{background:var(--orange)}
+.prediction-labels{font-size:20px}.yes{color:var(--cyan)}.no{color:var(--orange)}#prediction-note{font-size:17px;margin:0}
+footer{position:absolute;bottom:0;left:0;right:0;height:126px;padding:15px 36px;background:rgba(11,13,16,.96);border-top:1px solid var(--line);display:flex;align-items:center;gap:24px}
+.strip-label{width:150px;flex-shrink:0}.strip-label .heading{font-size:27px;letter-spacing:1px;color:var(--yellow)}#chat-count{font-size:13px;color:var(--muted);margin-top:8px}
+#agents{display:flex;gap:12px;flex:1;min-width:0}.agent{flex:1;min-width:0;padding:10px 12px;background:#15181E;border:1px solid var(--line)}
+.agent-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:6px}.agent-text{font-size:16px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.agent.latest{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}.latest .agent-name{color:#493800}.footer-right{width:175px;flex-shrink:0;text-align:right;font-size:17px;color:var(--muted)}
+#connection{display:block;font-size:12px;color:var(--orange);margin-top:8px}[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<main id="stage">
+<div class="badge heading">STREAMER vs CHAT</div>
+<section class="fans panel" aria-label="Top fans">
+<h2 class="eyebrow">TOP FANS THIS STREAM</h2>
+<div id="fans"><p class="muted">Your first prediction starts here.</p></div>
+</section>
+<div class="right">
+<section class="dare panel" aria-label="Current dare">
+<div class="row"><span class="eyebrow accent">AI DARE · CHAT LOADOUT</span><span id="phase" class="mono">IDLE</span></div>
+<h1 id="title" class="heading" hidden></h1>
+<div id="idle"><div class="heading waiting">Waiting for the Game Master…</div><p class="muted">streamer types !dare</p></div>
+<div id="voting" hidden><div id="options"></div><div class="muted">Choose your loadout: !pick N</div></div>
+<div id="running" hidden><div id="winner"></div><div class="row"><span class="muted">Kills this dare</span><span id="progress" class="heading"></span></div><div class="track"><div id="progress-bar" class="fill"></div></div></div>
+<div id="resolved" hidden><div id="result" class="heading"></div><div id="final-score" class="muted"></div><span id="overruled" class="mono" hidden>OVERRULED</span></div>
+<div id="clock" class="clock row" hidden><span id="clock-label" class="muted"></span><span id="countdown" class="mono"></span></div>
+</section>
+<section class="predictions panel" aria-label="Fan predictions">
+<div class="eyebrow">FANS PREDICT · WILL THEY MAKE IT?</div>
+<div class="row prediction-labels mono"><span id="yes" class="yes">YES 0%</span><span id="no" class="no">NO 0%</span></div>
+<div class="prediction-bar"><div id="yes-bar"></div><div id="no-bar"></div></div>
+<p id="prediction-note" class="muted">!yes / !no · Correct predictions earn +1.</p>
+</section>
+</div>
+<footer>
+<div class="strip-label"><div class="heading">AGENT FEED</div><div id="chat-count" class="mono">0 chat events</div></div>
+<div id="agents"><span class="muted">Standing by for the first dare.</span></div>
+<div class="footer-right mono">!dare in chat<span id="connection">CONNECTING</span></div>
+</footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const text = (id, value) => { $(id).textContent = value; };
+const show = (id, visible) => { $(id).hidden = !visible; };
+function element(tag, className, value) {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (value !== undefined) node.textContent = value;
+  return node;
+}
+function scale() { $('stage').style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; }
+addEventListener('resize', scale); scale();
+function render(view) {
+  const dare = view.dare;
+  show('idle', !dare); show('title', !!dare);
+  for (const phase of ['voting', 'running', 'resolved']) show(phase, dare?.status === phase);
+  text('phase', dare ? dare.status.toUpperCase() : 'IDLE');
+  show('clock', !!dare && dare.status !== 'resolved');
+  if (dare) {
+    text('title', dare.title);
+    if (dare.status === 'voting') {
+      const options = dare.options.map((option, i) => {
+        const node = element('div', 'option');
+        const row = element('div', 'row');
+        row.append(element('span', 'option-name', `${i + 1}. ${option.title}`), element('span', 'mono accent', `${option.percent}%`));
+        const track = element('div', 'track'); const fill = element('div', 'fill');
+        fill.style.transform = `scaleX(${option.percent / 100})`; track.append(fill); node.append(row, track); return node;
+      });
+      $('options').replaceChildren(...options);
+    }
+    if (dare.status === 'running') {
+      text('winner', dare.options[(dare.winner ?? 1) - 1]?.title ?? '');
+      text('progress', `${dare.progress} / ${dare.target.count}`);
+      $('progress-bar').style.transform = `scaleX(${Math.min(1, dare.progress / dare.target.count)})`;
+    }
+    if (dare.status === 'resolved') {
+      text('result', dare.success ? 'DARE WON' : 'DARE LOST');
+      $('resolved').classList.toggle('loss', !dare.success);
+      text('final-score', `${dare.progress} / ${dare.target.count} kills · Fan scores updated.`);
+      show('overruled', dare.overruled);
+    } else {
+      const voting = dare.status === 'voting';
+      const seconds = Math.max(0, Math.ceil((Date.parse(voting ? dare.voteEndsAt : dare.dareEndsAt) - view.serverNow) / 1000));
+      text('clock-label', voting ? 'Vote closes in' : 'Time remaining');
+      text('countdown', `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
+    }
+  }
+  for (const side of ['yes', 'no']) {
+    text(side, `${side.toUpperCase()} ${view.predictions[side].percent}%`);
+    $(side + '-bar').style.width = `${view.predictions[side].percent}%`;
+  }
+  text('prediction-note', `${view.predictions.yes.count} yes · ${view.predictions.no.count} no · Correct predictions earn +1.`);
+  const fans = view.topFans.map((fan, index) => {
+    const row = element('div', 'fan');
+    row.append(element('span', 'rank mono', String(index + 1)), element('span', 'login', fan.login), element('span', 'score mono', `${fan.score} right`));
+    return row;
+  });
+  $('fans').replaceChildren(...(fans.length ? fans : [element('p', 'muted', 'Your first prediction starts here.')]));
+  const agents = view.agentStrip.map((item, index) => {
+    const node = element('div', 'agent' + (index === view.agentStrip.length - 1 ? ' latest' : ''));
+    node.append(element('div', 'agent-name', item.agent), element('div', 'agent-text', item.text)); return node;
+  });
+  $('agents').replaceChildren(...(agents.length ? agents : [element('span', 'muted', 'Standing by for the first dare.')]));
+  text('chat-count', `${view.chatEventCount} chat events`);
+}
+let attempts = 0;
+function connect() {
+  const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/overlay/ws`);
+  socket.onmessage = event => {
+    try { render(JSON.parse(event.data)); attempts = 0; text('connection', ''); }
+    catch { text('connection', 'WAITING FOR STATE'); }
+  };
+  socket.onerror = () => socket.close();
+  socket.onclose = () => {
+    text('connection', 'RECONNECTING · TIMER PAUSED');
+    setTimeout(connect, Math.min(1000 * 2 ** Math.min(attempts++, 5), 30000));
+  };
+}
+connect();
+</script>
+</body>
+</html>

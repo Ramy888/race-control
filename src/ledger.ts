@@ -32,12 +32,15 @@ export interface DareState extends Omit<DareSpec, 'options'> {
   progress: number;
   status: 'voting' | 'running' | 'resolved';
   success?: boolean;
+  overruled?: boolean;
 }
 export interface RaceState {
   currentDare?: DareState;
   fanScores: Record<string, { login: string; score: number }>;
   lastEvents: LedgerEvent[];
   dareCount: number;
+  chatEventCount: number;
+  agentStrip: { agent: string; text: string }[];
 }
 
 export function voteWinner(options: DareState['options']): number {
@@ -45,10 +48,15 @@ export function voteWinner(options: DareState['options']): number {
 }
 
 export function replay(events: readonly LedgerEvent[]): RaceState {
-  const state: RaceState = { fanScores: Object.create(null), lastEvents: structuredClone(events.slice(-20)), dareCount: 0 };
+  const state: RaceState = { fanScores: Object.create(null), lastEvents: structuredClone(events.slice(-20)), dareCount: 0, chatEventCount: 0, agentStrip: [] };
+  const activity = (agent: string, text: string) => {
+    state.agentStrip.push({ agent, text });
+    state.agentStrip = state.agentStrip.slice(-5);
+  };
   const dares = new Map<string, DareState>();
   for (const event of events) {
     if (event.agent !== agents[event.type]) continue;
+    if (event.agent === 'Chat') state.chatEventCount++;
     if (event.type === 'dare_opened') {
       const spec = event.data;
       if (dares.has(spec.dareId) || (state.currentDare && state.currentDare.status !== 'resolved') ||
@@ -60,6 +68,7 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
       dares.set(spec.dareId, dare);
       state.currentDare = dare;
       state.dareCount++;
+      activity(event.agent, `Opened: ${dare.title}`);
       continue;
     }
     const dare = dares.get(event.data.dareId);
@@ -84,20 +93,29 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
         if (dare.status === 'voting' && at >= Date.parse(dare.voteEndsAt)) {
           dare.winner = voteWinner(dare.options);
           dare.status = 'running';
+          activity(event.agent, `Vote locked: ${dare.options[dare.winner - 1]!.title}`);
         }
         break;
       case 'progress':
         if (dare.status === 'running' && at <= Date.parse(dare.dareEndsAt) && event.data.stat === dare.target.stat &&
-            Number.isFinite(event.data.delta) && event.data.delta > 0) dare.progress += event.data.delta;
+            Number.isFinite(event.data.delta) && event.data.delta > 0) {
+          dare.progress += event.data.delta;
+          activity(event.agent, `Kills ${dare.progress}/${dare.target.count}`);
+        }
         break;
       case 'dare_resolved':
         if (dare.status === 'running' && (dare.progress >= dare.target.count || at >= Date.parse(dare.dareEndsAt))) {
           dare.status = 'resolved';
           dare.success = dare.progress >= dare.target.count;
+          activity(event.agent, dare.success ? 'Dare won' : 'Dare lost');
         }
         break;
       case 'overruled':
-        if (dare.status === 'resolved' && event.data.reason.trim() && event.data.success !== dare.success) dare.success = event.data.success;
+        if (dare.status === 'resolved' && event.data.reason.trim() && event.data.success !== dare.success) {
+          dare.success = event.data.success;
+          dare.overruled = true;
+          activity(event.agent, `Overruled: ${dare.success ? 'win' : 'loss'}`);
+        }
         break;
     }
   }
@@ -114,6 +132,7 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
 
 export class Ledger {
   private events: LedgerEvent[] = [];
+  private readonly listeners = new Set<() => void>();
   private pending: Promise<unknown> = Promise.resolve();
   private constructor(private readonly path: string) {}
 
@@ -140,6 +159,11 @@ export class Ledger {
 
   get state(): RaceState { return replay(this.events); }
 
+  onAppend(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+
   append(input: EventInput, at = new Date().toISOString()): Promise<void> {
     const copy = structuredClone(input);
     const result = this.pending.then(async () => {
@@ -147,6 +171,10 @@ export class Ledger {
       await mkdir(dirname(this.path), { recursive: true });
       await appendFile(this.path, JSON.stringify(event) + '\n', { mode: 0o600 });
       this.events.push(event);
+      for (const listener of this.listeners) {
+        // A disconnected observer must not turn a committed write into a failure.
+        try { listener(); } catch { /* Observers own their error handling. */ }
+      }
     });
     // A failed write poisons this writer: continuing could append after a partial line.
     this.pending = result;

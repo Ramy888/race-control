@@ -3,7 +3,7 @@ import { loadConfig } from './config.js';
 import { DareLoop } from './dares.js';
 import { EventSubClient } from './eventsub.js';
 import { Ledger } from './ledger.js';
-import { startMockServer } from './mock.js';
+import { startLocalServer } from './server.js';
 import { RateLimitQueue } from './queue.js';
 import { TokenManager } from './tokens.js';
 import { TwitchApi } from './twitch.js';
@@ -19,14 +19,9 @@ try {
     const loop = new DareLoop(ledger, config.broadcasterLogin, async message => { console.log(`[chat] ${message}`); });
     cleanup.push(() => loop.stop());
     await loop.start();
-    const server = startMockServer(config.port, chat => loop.handle(chat));
-    cleanup.push(() => { server.close(); server.closeAllConnections(); });
-    server.on('error', () => {
-      console.error(`Cannot listen on 127.0.0.1:${config.port}. Check whether the port is in use.`);
-      process.exitCode = 1;
-      shutdown();
-    });
-    server.on('listening', () => console.log(`Mock chat: http://127.0.0.1:${config.port}/mock/chat — broadcaster: ${config.broadcasterLogin}. Send !dare to start.`));
+    const local = await startLocalServer(config.port, ledger, chat => loop.handle(chat));
+    cleanup.push(local.stop);
+    console.log(`Mock chat: http://127.0.0.1:${config.port}/mock/chat — broadcaster: ${config.broadcasterLogin}. Send !dare to start.`);
   } else {
     const tokens = new TokenManager(config);
     const { broadcaster, bot } = await tokens.validateAll();
@@ -35,6 +30,8 @@ try {
     const loop = new DareLoop(ledger, config.broadcasterLogin, message => api.send(message));
     cleanup.push(() => { loop.stop(); queue.stop(); });
     await loop.start();
+    const local = await startLocalServer(config.port, ledger);
+    cleanup.push(local.stop);
     const client = new EventSubClient({
       broadcasterId: broadcaster.userId!, botId: bot.userId!,
       subscribe: id => api.subscribe(id), send: message => api.send(message),
@@ -52,6 +49,7 @@ try {
     client.start();
     console.log(`Race Control starting in #${config.broadcasterLogin} as ${config.botLogin}.`);
   }
+  console.log(`OBS overlay: http://localhost:${config.port}/overlay (1920×1080).`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Race Control failed to start.');
   process.exitCode = 1;
