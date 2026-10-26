@@ -1,0 +1,23 @@
+# secrets and local data
+.env
+.env.*
+!.env.example
+.data/
+
+# deps and build output
+node_modules/
+dist/
+coverage/
+
+# AI agent instructions stay local
+AGENTS.md
+CLAUDE.md
+.claude/
+.agents/
+.codex/
+
+# OS
+.DS_Store
+
+# copies of Twitch docs (their copyright)
+docs/twitch/
