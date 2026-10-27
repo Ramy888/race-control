@@ -6,14 +6,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#0B0D10;--panel:#15181E;--line:#303641;--text:#F2F4F7;--muted:#9AA3B2;--yellow:#FFC93C;--cyan:#4CC9F0}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,sans-serif}header{padding:24px 32px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}h1,h2{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;margin:0;line-height:1.1}h1{font-size:40px}h1 span{color:var(--yellow)}h2{font-size:26px}.eyebrow,.tag{font:12px 'JetBrains Mono',monospace;letter-spacing:1px;color:var(--cyan)}.eyebrow{margin-bottom:8px}p{margin:10px 0;color:var(--muted)}main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;padding:24px 32px}.stage{position:relative;aspect-ratio:16/9;background:radial-gradient(ellipse at center,#203d43,#111b24 65%);border:1px solid var(--line);overflow:hidden}.stage:before{content:'YOUR STREAM GOES HERE';position:absolute;inset:45% 0;text-align:center;font:14px 'JetBrains Mono',monospace;color:#6b8590;letter-spacing:3px}iframe{position:absolute;width:100%;height:100%;border:0}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:18px 0}button,input,select{font:inherit;border:1px solid var(--line);border-radius:3px;padding:9px 12px;color:var(--text);background:var(--panel)}button{cursor:pointer}button:hover{border-color:var(--yellow)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}button:disabled{opacity:.45;cursor:default}#auto{background:var(--yellow);color:var(--bg);font-weight:600;border-color:var(--yellow);padding:11px 20px}#reset{font-size:13px}#status{color:var(--cyan);font-size:14px}.steps{display:flex;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}.steps b{color:var(--yellow)}aside{min-width:0;background:var(--panel);border:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:14px}aside .row{display:flex;align-items:center;justify-content:space-between;gap:12px}fieldset{padding:0;border:0;margin:0;min-width:0}label{font-size:13px;color:var(--muted)}select{max-width:240px}#transcript{height:320px;overflow:auto;background:var(--bg);border:1px solid var(--line);padding:12px;overflow-wrap:anywhere}.line{margin:0 0 10px;font-size:13px}.sender{color:var(--cyan);font-weight:600;margin-right:8px}.bot .sender{color:var(--yellow)}form{display:flex;gap:8px;margin:12px 0}input{min-width:0;flex:1}.quick{display:flex;gap:6px;flex-wrap:wrap}.quick button{font:12px 'JetBrains Mono',monospace;padding:7px 9px}small{display:block;color:var(--muted);margin-top:14px}.note{font-size:13px;max-width:75ch}#connection{font-size:12px;color:var(--muted)}@media(max-width:1000px){main{grid-template-columns:1fr}header,main{padding:18px}#transcript{height:240px}h1{font-size:32px}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,sans-serif}header{padding:24px 32px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}h1,h2{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;margin:0;line-height:1.1}h1{font-size:40px}h1 span{color:var(--yellow)}h2{font-size:26px}.eyebrow,.tag{font:12px 'JetBrains Mono',monospace;letter-spacing:1px;color:var(--cyan)}.eyebrow{margin-bottom:8px}p{margin:10px 0;color:var(--muted)}main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;padding:24px 32px}.stage{position:relative;aspect-ratio:16/9;background:radial-gradient(ellipse at center,#203d43,#111b24 65%);border:1px solid var(--line);overflow:hidden}iframe{position:absolute;width:100%;height:100%;border:0}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:18px 0}button,input,select{font:inherit;border:1px solid var(--line);border-radius:3px;padding:9px 12px;color:var(--text);background:var(--panel)}button{cursor:pointer}button:hover{border-color:var(--yellow)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}button:disabled{opacity:.45;cursor:default}#auto{background:var(--yellow);color:var(--bg);font-weight:600;border-color:var(--yellow);padding:11px 20px}#reset{font-size:13px}#status{color:var(--cyan);font-size:14px}.steps{display:flex;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}.steps b{color:var(--yellow)}aside{min-width:0;background:var(--panel);border:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:14px}aside .row{display:flex;align-items:center;justify-content:space-between;gap:12px}fieldset{padding:0;border:0;margin:0;min-width:0}label{font-size:13px;color:var(--muted)}select{max-width:240px}#transcript{height:320px;overflow:auto;background:var(--bg);border:1px solid var(--line);padding:12px;overflow-wrap:anywhere}.line{margin:0 0 10px;font-size:13px}.sender{color:var(--cyan);font-weight:600;margin-right:8px}.bot .sender{color:var(--yellow)}form{display:flex;gap:8px;margin:12px 0}input{min-width:0;flex:1}.quick{display:flex;gap:6px;flex-wrap:wrap}.quick button{font:12px 'JetBrains Mono',monospace;padding:7px 9px}small{display:block;color:var(--muted);margin-top:14px}.note{font-size:13px;max-width:75ch}#connection{font-size:12px;color:var(--muted)}@media(max-width:1000px){main{grid-template-columns:1fr}header,main{padding:18px}#transcript{height:240px}h1{font-size:32px}}
+.playground-banner{padding:14px 24px;background:#252414;border-bottom:2px solid var(--yellow);color:var(--text);overflow-wrap:anywhere}.playground-banner a{color:var(--cyan)}[hidden]{display:none!important}.quick button{max-width:100%;overflow-wrap:anywhere;text-align:left}@media(max-width:600px){header{flex-wrap:wrap}.tag{font-size:10px}main>section{min-width:0}select{max-width:210px}}
 </style>
 </head>
 <body>
+<div id="playground-banner" class="playground-banner" hidden>Browser playground: the real Race Control code running in your browser. Codex calls are replaced by recorded outputs from real Codex runs (Oct 27, 2026); chat is simulated. For live Codex and Twitch, run it locally: <code>npm run demo</code>. <a href="https://github.com/Ramy888/race-control">GitHub repo</a> · <a href="https://youtu.be/1lJhBmnER-k">YouTube demo</a></div>
 <header><div><div class="eyebrow">LOCAL DEMO · STREAMER vs CHAT</div><h1>Race <span>Control</span></h1></div><span class="tag">YOU ARE THE COMMISSIONER</span></header>
 <main>
 <section aria-label="Stream preview">
-<div class="stage"><iframe src="/overlay" title="Live Race Control overlay"></iframe></div>
+<div class="stage"><iframe id="hud" src="/hud-test?embed=1" title="Simulated game · TEST HUD"></iframe><iframe id="overlay" src="/overlay" title="Live Race Control overlay"></iframe></div>
 <div class="actions"><button id="auto" disabled>Auto-play</button><button id="reset" disabled>Reset demo</button><span id="status" role="status">Connecting to Race Control…</span></div>
 <p class="note">See the whole loop in under two minutes. Codex proposes a dare when available; otherwise a labelled sample takes over. You stay in charge of approvals.</p>
 <div class="steps"><span><b>01</b> Propose & approve</span><span><b>02</b> Chat votes</span><span><b>03</b> Score the kills</span><span><b>04</b> Rewrite the rules</span></div>
@@ -32,6 +34,7 @@
 </aside>
 </main>
 <script>
+const localSession = globalThis.raceDemo;
 const $ = id => document.getElementById(id);
 const viewers = ['viewer01','viewer02','viewer03','viewer04','viewer05','viewer06'];
 let config, view, feedReady = false, run, ruleStatus, reconnects = 0;
@@ -44,13 +47,24 @@ function line(from, message) {
   if ($('transcript').children.length > 400) $('transcript').firstElementChild.remove();
   $('transcript').scrollTop = $('transcript').scrollHeight;
 }
+function syncHud() {
+  $('hud').contentWindow?.postMessage({ type: 'race-hud', kills: view?.dare?.progress ?? 0 }, location.origin);
+}
+$('hud').addEventListener('load', syncHud);
 function ready() {
+  syncHud();
   const connected = !!config && !!view && feedReady;
   $('auto').disabled = !connected && !run; $('controls').disabled = !connected || !!run;
   $('reset').disabled = !config?.canReset;
   text('connection', connected ? 'Connected' : 'Reconnecting');
 }
 async function request(path, body, signal) {
+  if (localSession) {
+    if (signal?.aborted) throw new Error('Auto-play stopped.');
+    if (path === '/demo/reset') localSession.reset();
+    else await localSession.chat(body.user, body.text);
+    return;
+  }
   const controller = new AbortController();
   const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true });
   if (signal?.aborted) controller.abort();
@@ -77,9 +91,9 @@ async function waitFor(check, step, timeout, signal) {
   if (signal.aborted) throw new Error('Auto-play stopped.');
 }
 async function reset(signal) {
+  $('transcript').replaceChildren();
   await request('/demo/reset', {}, signal);
-  await waitFor(() => view && !view.dare && !view.pendingRule && !view.houseRule, 'reset', 5000, signal);
-  $('transcript').replaceChildren(); line('Demo guide', 'Fresh Ledger. Ready for !dare.');
+  await waitFor(() => view && (!view.dare || view.dare.status === 'resolved') && !view.pendingRule && !view.houseRule, 'reset', 5000, signal);
 }
 async function autoplay() {
   if (run) { run.abort(); return; }
@@ -108,7 +122,7 @@ async function autoplay() {
     for (let i = 0; i < target && view.dare.status === 'running'; i++) { await send(config.broadcaster, '!kill', signal); await pause(450, signal); }
     await waitFor(() => view?.dare?.status === 'resolved', 'dare result', 5000, signal);
     stage('4 · Compile a new rule and replay the standings'); ruleStatus = undefined;
-    await send(config.broadcaster, '!rule wrong calls lose a point', signal);
+    await send(config.broadcaster, '!rule ' + (localSession?.rules[0] ?? 'wrong calls lose a point'), signal);
     await waitFor(() => !!ruleStatus, 'Rules Compiler / Auditor', 60000, signal);
     if (ruleStatus === 'unavailable') { line('Demo guide', 'Loop complete. Rule compilation needs a logged-in Codex CLI.'); text('status', 'Dare complete · Codex optional for rules'); }
     else {
@@ -130,15 +144,17 @@ $('chat-form').addEventListener('submit', async event => {
   event.preventDefault(); const message = $('message').value; $('message').value = '';
   try { await send($('user').value, message); } catch (error) { line('Demo guide', error.message); }
 });
-for (const command of ['!dare','!approve','!reroll','1','2','3','!yes','!no','!kill','!rule wrong calls lose a point','!adopt','!rule reset']) {
+for (const command of ['!dare','!approve','!reroll','1','2','3','!yes','!no','!kill',...(localSession ? localSession.rules.map(rule => '!rule ' + rule) : ['!rule wrong calls lose a point']),'!adopt','!rule reset']) {
   const button = document.createElement('button'); button.type = 'button'; button.textContent = command;
   button.addEventListener('click', () => { void send($('user').value, command).catch(error => line('Demo guide', error.message)); }); $('quick').append(button);
 }
-const feed = new EventSource('/demo/events');
+const feed = localSession ? {} : new EventSource('/demo/events');
 feed.onopen = () => { feedReady = true; ready(); };
 feed.onerror = () => { feedReady = false; ready(); };
 feed.onmessage = event => {
-  const message = JSON.parse(event.data); line(message.from, message.text);
+  const message = JSON.parse(event.data);
+  if (message.from === 'Demo guide' && message.text.startsWith('loaded 3 earlier dares ')) $('transcript').replaceChildren();
+  line(message.from, message.text);
   if (message.from === 'Race Control') {
     if (message.text.startsWith('Rule ready:')) ruleStatus = 'ready';
     else if (message.text.includes('Codex not available')) ruleStatus = 'unavailable';
@@ -151,13 +167,26 @@ function connect() {
   socket.onerror = () => socket.close();
   socket.onclose = () => { view = undefined; ready(); setTimeout(connect, Math.min(1000 * 2 ** reconnects++, 30000)); };
 }
-connect();
-fetch('/demo/config').then(response => { if (!response.ok) throw new Error('Demo unavailable. Start npm run demo.'); return response.json(); }).then(value => {
+if (localSession) {
+  $('playground-banner').hidden = false;
+  document.querySelector('.eyebrow').textContent = 'BROWSER PLAYGROUND · STREAMER vs CHAT';
+  document.querySelector('.note').textContent = 'Recorded Codex proposals; real voting, auditing and Ledger replay. Nothing leaves this browser. Reset starts a fresh session.';
+  const frame = $('overlay');
+  const snapshot = snapshot => {
+    view = snapshot; ready();
+    frame.contentWindow?.postMessage({ type: 'race-overlay', view: snapshot }, location.origin);
+  };
+  frame.addEventListener('load', () => snapshot(localSession.snapshot()));
+  localSession.onView(snapshot);
+  localSession.onFeed(message => feed.onmessage({ data: JSON.stringify(message) }));
+  feed.onopen();
+} else connect();
+(localSession ? Promise.resolve({ ok: true, json: async () => localSession.config }) : fetch('/demo/config')).then(response => { if (!response.ok) throw new Error('Demo unavailable. Start npm run demo.'); return response.json(); }).then(value => {
   config = value;
   for (const user of [config.broadcaster, ...viewers.filter(name => name !== config.broadcaster)]) {
     const option = document.createElement('option'); option.value = user; option.textContent = user === config.broadcaster ? `${user} (streamer)` : user; $('user').append(option);
   }
-  text('availability', config.codex ? 'Codex CLI detected. AI features require an active Codex login.' : 'Codex CLI not found. Sample dares work now; !rule needs Codex.');
+  text('availability', config.recorded ? 'Recorded Codex outputs · Auditor computes 2,304 synthetic cases plus session contexts live. No Twitch or OBS connection.' : config.codex ? 'Codex CLI detected. AI features require an active Codex login.' : 'Codex CLI not found. Sample dares work now; !rule needs Codex.');
   text('status', 'Ready · press Auto-play or send a command'); ready();
 }).catch(error => text('status', error.message));
 </script>

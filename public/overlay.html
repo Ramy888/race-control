@@ -174,7 +174,12 @@ function connect() {
     setTimeout(connect, Math.min(1000 * 2 ** Math.min(attempts++, 5), 30000));
   };
 }
-connect();
+if (location.search && new URLSearchParams(location.search).get('browser') === '1' && parent !== window) {
+  addEventListener('message', event => {
+    if (event.source !== parent || event.origin !== location.origin || event.data?.type !== 'race-overlay') return;
+    render(event.data.view); text('connection', '');
+  });
+} else connect();
 </script>
 </body>
 </html>

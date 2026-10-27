@@ -7,6 +7,7 @@ import type { Config } from './config.js';
 import { parseCommand, type ChatInput } from './commands.js';
 import { DareLoop } from './dares.js';
 import { generateDare } from './gamemaster.js';
+import { demoHistory, historyNotice } from './demo-history.js';
 import { Ledger } from './ledger.js';
 
 export const demoLedgerPath = '.data/demo.jsonl';
@@ -65,6 +66,10 @@ export class MockSession {
     await session.bind(); return session;
   }
   private async bind(): Promise<void> {
+    if (this.canReset && !this.ledger.state.lastEvents.length) {
+      for (const event of demoHistory(Date.now())) await this.ledger.append(event, event.at);
+      this.feed.publish('Demo guide', historyNotice);
+    }
     this.unsubscribe = this.ledger.onAppend(() => this.notify());
     this.loop = new DareLoop(this.ledger, this.config.broadcasterLogin, async text => {
       console.log(`[chat] ${text}`); this.feed.publish('Race Control', text);

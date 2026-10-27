@@ -10,7 +10,8 @@ import { DemoFeed, MockSession, codexAvailable, demoEnvironment, freshDemo } fro
 import { generateDare } from '../src/gamemaster.js';
 import { startLocalServer } from '../src/server.js';
 import { DareLoop } from '../src/dares.js';
-import { replay, type EventInput, type LedgerEvent } from '../src/ledger.js';
+import { historyNotice } from '../src/demo-history.js';
+import { Ledger, replay, type EventInput, type LedgerEvent } from '../src/ledger.js';
 
 const fallback: typeof generateDare = context => generateDare(context, async () => { throw new Error('missing CLI'); });
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -68,7 +69,7 @@ test('feed streams both directions, replays missed entries, and closes cleanly',
   feed.stop(); assert.equal(ended, true);
 });
 
-test('mock demo routes and SSE deliver input/reply; reset empties only demo Ledger and restarts state', async t => {
+test('mock demo routes and SSE deliver input/reply; reset reseeds only demo Ledger and restarts state', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'judge-demo-'));
   const path = join(dir, 'demo.jsonl'), live = join(dir, 'ledger.jsonl'); await writeFile(live, 'LIVE DATA');
   const config = loadConfig({ MOCK: '1', DEMO: '1', LEDGER_PATH: path });
@@ -86,8 +87,10 @@ test('mock demo routes and SSE deliver input/reply; reset empties only demo Ledg
   const post = async (text: string) => {
     const response = await fetch(url + '/mock/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: 'streamer', text }) }); assert.equal(response.status, 200);
   };
+  assert.equal(session.state.dareCount, 3);
   await post('!ping');
   while (!received.includes('pong')) received += new TextDecoder().decode((await reader.read()).value);
+  assert.ok(received.indexOf(historyNotice) < received.indexOf('!ping'));
   assert.ok(received.includes('"from":"streamer","text":"!ping"')); assert.ok(received.includes('"from":"Race Control","text":"pong"'));
   await session.handle({ userId: 'streamer', login: 'streamer', text: '!rule wrong calls lose a point' });
   while (!received.includes('Codex not available')) received += new TextDecoder().decode((await reader.read()).value);
@@ -98,7 +101,8 @@ test('mock demo routes and SSE deliver input/reply; reset empties only demo Ledg
   await post('!approve'); assert.equal(session.state.currentDare?.status, 'voting');
   assert.ok((await readFile(path, 'utf8')).length);
   assert.equal((await fetch(url + '/demo/reset', { method: 'POST' })).status, 200);
-  assert.equal(await readFile(path, 'utf8'), ''); assert.equal(session.state.currentDare, undefined);
+  assert.equal((await Ledger.open(path)).state.dareCount, 3); assert.equal(session.state.currentDare?.status, 'resolved');
+  assert.equal(session.state.proposal, undefined);
   assert.equal(await readFile(live, 'utf8'), 'LIVE DATA');
   await post('!ping'); await reader.cancel();
 });
@@ -106,6 +110,7 @@ test('mock demo routes and SSE deliver input/reply; reset empties only demo Ledg
 test('live routes are absent; ordinary mock cannot reset its Ledger', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'judge-live-'));
   const session = await MockSession.open(loadConfig({ MOCK: '1', LEDGER_PATH: join(dir, 'ledger.jsonl') }), false, fallback);
+  assert.equal(session.state.dareCount, 0);
   const local = await startLocalServer(0, session); // No mock handler means live-only routes.
   t.after(async () => { session.stop(); local.stop(); await rm(dir, { recursive: true, force: true }); });
   const address = local.server.address(); assert.ok(address && typeof address === 'object');
@@ -123,5 +128,5 @@ test('reset cannot resurrect an in-flight Game Master proposal', async t => {
   await session.handle({ userId: 'streamer', login: 'streamer', text: '!dare' });
   await session.reset(); complete(await generateDare({ game: 'Fortnite', previousTitles: [], sampleIndex: 0, enabled: false }));
   await session.handle({ userId: 'streamer', login: 'streamer', text: '!ping' });
-  assert.equal(session.state.proposal, undefined); assert.equal(await readFile(join(dir, 'demo.jsonl'), 'utf8'), '');
+  assert.equal(session.state.proposal, undefined); assert.equal((await Ledger.open(join(dir, 'demo.jsonl'))).state.dareCount, 3);
 });

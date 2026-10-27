@@ -18,11 +18,22 @@
 <body>
 <main id="frame"><div class="ridge"></div><div class="grid"></div><div class="label">TEST HUD</div>
 <div class="counter-label">ELIMINATIONS</div><div id="kills" aria-label="Kills">0</div><div class="crosshair"></div>
-<div class="instructions"><strong>SPACE / K</strong> add one kill · <strong>R</strong> reset<br>OBS: right-click this Browser Source → Interact, then click inside.</div></main>
+<div id="instructions" class="instructions"><strong>SPACE / K</strong> add one kill · <strong>R</strong> reset<br>OBS: right-click this Browser Source → Interact, then click inside.</div></main>
 <script>
 // ?kills=N sets the starting count, so OBS or a script can drive the HUD without key presses.
 let kills = Math.max(0, Math.min(999, Number.parseInt(new URLSearchParams(location.search).get('kills') ?? '', 10) || 0));
 document.getElementById('kills').textContent = String(kills);
+if (new URLSearchParams(location.search).get('embed') === '1') {
+  document.getElementById('instructions').hidden = true;
+  document.querySelector('.label').style.left = '820px';
+  // Only the embedding page can drive demo kills; standalone OBS keyboard behavior is unchanged.
+  addEventListener('message', event => {
+    if (event.source !== parent || event.origin !== location.origin || event.data?.type !== 'race-hud' ||
+        !Number.isInteger(event.data.kills) || event.data.kills < 0 || event.data.kills > 999) return;
+    kills = event.data.kills;
+    document.getElementById('kills').textContent = String(kills);
+  });
+}
 addEventListener('keydown', event => {
   if (event.repeat) return;
   if (event.code === 'Space' || event.key.toLowerCase() === 'k') { event.preventDefault(); kills = Math.min(999, kills + 1); }

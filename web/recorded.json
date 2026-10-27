@@ -1,0 +1,277 @@
+{
+ "recordedAt": "2026-10-27T18:22:12.320Z",
+ "note": "Real Codex CLI outputs captured for the hosted browser demo.",
+ "dares": [
+  {
+   "model": "gpt-6-luna",
+   "title": "Chat Calls the Landing",
+   "options": [
+    "Pick the drop spot",
+    "Choose my loadout",
+    "No healing for 1 min"
+   ],
+   "stakes": "If I miss 8 kills, chat picks my next drop spot.",
+   "target": {
+    "stat": "kills",
+    "count": 8
+   },
+   "source": "ai"
+  },
+  {
+   "model": "gpt-6-luna",
+   "title": "Loot Route Lock-In",
+   "options": [
+    "Cozy Cabin",
+    "Craggy Coast",
+    "Verdant Valley"
+   ],
+   "stakes": "Hit 7 kills on chat’s chosen drop route; if not, chat picks your next landing.",
+   "target": {
+    "stat": "kills",
+    "count": 7
+   },
+   "source": "ai"
+  },
+  {
+   "model": "gpt-6-luna",
+   "title": "Chat's Color Challenge",
+   "options": [
+    "Only blue loot",
+    "Only green loot",
+    "Any color, no shield"
+   ],
+   "stakes": "Hit the target for a chat-picked victory pose.",
+   "target": {
+    "stat": "kills",
+    "count": 7
+   },
+   "source": "ai"
+  },
+  {
+   "model": "gpt-6-luna",
+   "title": "Stormside Sidearm Sprint",
+   "options": [
+    "Pistol only",
+    "SMG only",
+    "Shotgun only"
+   ],
+   "stakes": "Hit 7 kills with chat's weapon pick; miss it and wear a silly hat next round.",
+   "target": {
+    "stat": "kills",
+    "count": 7
+   },
+   "source": "ai"
+  },
+  {
+   "model": "gpt-6-luna",
+   "title": "Chat Picks Your Backup",
+   "options": [
+    "Pistol only",
+    "Shotgun only",
+    "SMG only"
+   ],
+   "stakes": "Hit the target with chat’s chosen weapon; miss it and chat picks your next drop.",
+   "target": {
+    "stat": "kills",
+    "count": 7
+   },
+   "source": "ai"
+  }
+ ],
+ "rules": [
+  {
+   "text": "wrong calls lose a point",
+   "compiler": {
+    "model": "gpt-6-luna",
+    "code": "return ctx.correct ? 1 : -1;",
+    "examples": [
+     {
+      "ctx": {
+       "correct": true,
+       "yes": true,
+       "success": true,
+       "overruled": false,
+       "yesCount": 4,
+       "noCount": 2,
+       "target": 15,
+       "progress": 15
+      },
+      "expected": 1
+     },
+     {
+      "ctx": {
+       "correct": false,
+       "yes": true,
+       "success": false,
+       "overruled": false,
+       "yesCount": 3,
+       "noCount": 5,
+       "target": 15,
+       "progress": 8
+      },
+      "expected": -1
+     },
+     {
+      "ctx": {
+       "correct": false,
+       "yes": false,
+       "success": true,
+       "overruled": false,
+       "yesCount": 2,
+       "noCount": 2,
+       "target": 10,
+       "progress": 12
+      },
+      "expected": -1
+     }
+    ]
+   },
+   "auditor": {
+    "model": "gpt-6-sol",
+    "code": "return ctx.correct ? 1 : -1;",
+    "examples": [
+     {
+      "ctx": {
+       "correct": true,
+       "yes": true,
+       "success": true,
+       "overruled": false,
+       "yesCount": 3,
+       "noCount": 2,
+       "target": 15,
+       "progress": 15
+      },
+      "expected": 1
+     },
+     {
+      "ctx": {
+       "correct": false,
+       "yes": true,
+       "success": false,
+       "overruled": false,
+       "yesCount": 3,
+       "noCount": 2,
+       "target": 15,
+       "progress": 9
+      },
+      "expected": -1
+     },
+     {
+      "ctx": {
+       "correct": false,
+       "yes": false,
+       "success": true,
+       "overruled": true,
+       "yesCount": 1,
+       "noCount": 4,
+       "target": 15,
+       "progress": 18
+      },
+      "expected": -1
+     }
+    ]
+   },
+   "audit": {
+    "cases": 2304,
+    "mismatches": 0
+   }
+  },
+  {
+   "text": "calls made against an overruled result score nothing",
+   "compiler": {
+    "model": "gpt-6-luna",
+    "code": "return ctx.overruled ? 0 : (ctx.correct ? 1 : 0);",
+    "examples": [
+     {
+      "ctx": {
+       "correct": true,
+       "yes": true,
+       "success": true,
+       "overruled": false,
+       "yesCount": 4,
+       "noCount": 2,
+       "target": 15,
+       "progress": 15
+      },
+      "expected": 1
+     },
+     {
+      "ctx": {
+       "correct": false,
+       "yes": true,
+       "success": false,
+       "overruled": false,
+       "yesCount": 3,
+       "noCount": 5,
+       "target": 15,
+       "progress": 12
+      },
+      "expected": 0
+     },
+     {
+      "ctx": {
+       "correct": true,
+       "yes": false,
+       "success": false,
+       "overruled": true,
+       "yesCount": 2,
+       "noCount": 6,
+       "target": 15,
+       "progress": 10
+      },
+      "expected": 0
+     }
+    ]
+   },
+   "auditor": {
+    "model": "gpt-6-sol",
+    "code": "return ctx.overruled ? 0 : (ctx.correct ? 1 : 0);",
+    "examples": [
+     {
+      "ctx": {
+       "correct": true,
+       "yes": true,
+       "success": true,
+       "overruled": false,
+       "yesCount": 8,
+       "noCount": 3,
+       "target": 15,
+       "progress": 15
+      },
+      "expected": 1
+     },
+     {
+      "ctx": {
+       "correct": false,
+       "yes": true,
+       "success": false,
+       "overruled": false,
+       "yesCount": 8,
+       "noCount": 3,
+       "target": 15,
+       "progress": 12
+      },
+      "expected": 0
+     },
+     {
+      "ctx": {
+       "correct": true,
+       "yes": false,
+       "success": false,
+       "overruled": true,
+       "yesCount": 3,
+       "noCount": 8,
+       "target": 15,
+       "progress": 12
+      },
+      "expected": 0
+     }
+    ]
+   },
+   "audit": {
+    "cases": 2304,
+    "mismatches": 0
+   }
+  }
+ ]
+}

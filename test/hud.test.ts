@@ -29,3 +29,26 @@ test('/hud-test serves HTML on an isolated port and demo keys update its counter
   key('K', undefined, true); assert.equal(counter.textContent, '5');
   key('r'); assert.equal(counter.textContent, '0'); assert.equal(frame.style.transform, 'scale(1)');
 });
+
+test('embedded HUD hides instructions, keeps TEST HUD, and accepts only parent-origin integer snapshots', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile('public/hud-test.html', 'utf8');
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)![1]!;
+  for (const embed of [false, true]) {
+    const counter = { textContent: '' }, frame = { style: {} }, label = { style: {} }, instructions = { hidden: false };
+    const parent = {}, origin = 'https://demo.test';
+    const events = new Map<string, (event: unknown) => void>();
+    runInContext(script, createContext({
+      innerWidth: 1920, innerHeight: 1080, location: { search: '?kills=4' + (embed ? '&embed=1' : ''), origin }, parent, URLSearchParams,
+      document: { getElementById: (id: string) => id === 'kills' ? counter : id === 'instructions' ? instructions : frame, querySelector: () => label },
+      addEventListener: (type: string, listener: (event: unknown) => void) => events.set(type, listener),
+    }));
+    assert.equal(instructions.hidden, embed); assert.equal(counter.textContent, '4');
+    assert.match(html, /class="label">TEST HUD<\/div>/);
+    if (!embed) { assert.equal(events.has('message'), false); assert.deepEqual(label.style, {}); continue; }
+    const send = (kills: unknown, source = parent, from = origin) => events.get('message')!({ source, origin: from, data: { type: 'race-hud', kills } });
+    send(8); assert.equal(counter.textContent, '8'); send(0); assert.equal(counter.textContent, '0');
+    for (const bad of [-1, 1000, 2.5, '7', NaN]) send(bad);
+    send(5, {}); send(5, parent, 'https://other.test'); assert.equal(counter.textContent, '0');
+  }
+});

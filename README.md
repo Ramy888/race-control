@@ -17,13 +17,26 @@ Open **http://127.0.0.1:3000/demo** and press **Auto-play**. If 3000 is busy, us
 - Simulated kills, a resolved dare, fan scores, and the agents' hand-offs in the live overlay.
 - A compiled/audited rule and retroactive standings after adoption when Codex is available; otherwise a clear message explains that rule compilation needs Codex.
 
-`npm run demo` starts fresh in **`.data/demo.jsonl`**, never the live `.data/ledger.jsonl`. **Reset demo** clears only that demo Ledger, cancels acceptance of old AI results, and starts a new loop. The vote lasts 10 seconds; the dare lasts 6 seconds per target kill, with a 20-second minimum. The Watcher stays off unless `WATCHER_SOURCE` is set. Missing CLI or authentication falls back to sample dares; a detected CLI may still need login/model access.
+`npm run demo` starts fresh in **`.data/demo.jsonl`**, never the live `.data/ledger.jsonl`. **Reset demo** clears only that demo Ledger, cancels acceptance of old AI results, and starts a new loop. Fresh demos and resets load three clearly labelled sample dares from earlier in the stream, giving the six viewers standings that visibly move when rules change. The embedded TEST HUD follows the dare’s kill progress underneath the overlay. The vote lasts 10 seconds; the dare lasts 6 seconds per target kill, with a 20-second minimum. The Watcher stays off unless `WATCHER_SOURCE` is set. Missing CLI or authentication falls back to sample dares; a detected CLI may still need login/model access.
 
 `npm test` runs all tests offline, with injected AI/OCR runners and localhost mock servers. No real Twitch, OBS, or Codex calls are needed.
 
-Hosted demo: (coming soon)
+**Hosted demo (no install):** https://race-control-demo.ramy-comm.workers.dev, a browser playground running the real game code. Codex calls are replaced by recorded outputs from real Codex runs and chat is simulated; for live Codex and Twitch, run `npm run demo` above.
 
 Race Control is a local AI game master and referee for a solo Twitch streamer versus their chat. Chat votes on a dare, the streamer approves it, and the Watcher reads kills from the game's HUD through OBS. The Ledger records the result and derives fan standings by replay; the streamer can also adopt a Codex-compiled scoring rule after an independent audit. An OBS overlay shows the dare, predictions, standings, and agent hand-offs.
+
+## Browser playground (static build)
+
+The hosted playground reuses the local demo and overlay pages, with the real command router, DareLoop, Ledger replay and Rules Auditor bundled into the browser. Each visitor has an isolated, in-memory session; Reset or reload discards it and reloads the same three sample-history dares. Five Game Master outputs and two compiler/auditor pairs are the unmodified real Codex recordings in `web/recorded.json` (October 27, 2026). Audits run live over 2,304 synthetic cases plus the session's prediction contexts, deduplicated. Other rule texts explain how to run locally. Chat and manual kills are simulated; there is no Twitch, OBS, or live Codex connection.
+
+Build and preview (Python 3 is only needed for this preview command):
+
+```sh
+npm run build:web
+python3 -m http.server 3001 --bind 127.0.0.1 --directory web/dist
+```
+
+Open **http://127.0.0.1:3001/** and press **Auto-play**. The shared layout stacks the overlay above chat on mobile. The [Cloudflare static-assets configuration](https://developers.cloudflare.com/workers/static-assets/) in `wrangler.jsonc` serves `web/dist/` without a Worker script; deployment is left to the maintainer. No account ID or runtime credentials are bundled.
 
 ## Agents
 

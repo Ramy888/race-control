@@ -4,7 +4,9 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
@@ -14,8 +16,18 @@
     "demo": "tsx src/demo-main.ts",
     "mock": "MOCK=1 tsx watch src/main.ts",
     "crowd": "tsx src/crowd.ts",
-    "hud:calibrate": "tsx src/hud-calibrate.ts"
+    "hud:calibrate": "tsx src/hud-calibrate.ts",
+    "build:web": "tsx web/build.ts"
   },
-  "dependencies": { "dotenv": "^17.2.0", "ws": "^8.18.0" },
-  "devDependencies": { "@types/node": "^22.0.0", "@types/ws": "^8.18.0", "tsx": "^4.20.0", "typescript": "^5.9.0" }
+  "dependencies": {
+    "dotenv": "^17.2.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "esbuild": "0.28.2"
+  }
 }
