@@ -14,8 +14,8 @@ guard args.count == 6,
       x >= 0, y >= 0, w > 0, h > 0, x + w <= 1, y + h <= 1 else { fail() }
 let url = URL(fileURLWithPath: args[1])
 do {
-    // .accurate drops a lone "0"; .fast still reads it (as "o"), so fall back to it.
-    for level in [VNRequestTextRecognitionLevel.accurate, .fast] {
+    // .fast reads lone HUD digits reliably; .accurate swaps a lone 6 and 9 and drops a lone 0, so it is only the fallback.
+    for level in [VNRequestTextRecognitionLevel.fast, .accurate] {
         let req = VNRecognizeTextRequest()
         req.recognitionLevel = level
         req.usesLanguageCorrection = false

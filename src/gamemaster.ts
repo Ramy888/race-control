@@ -21,7 +21,7 @@ export function runCodex(args: string[], launch = spawn, timeoutMs = 25_000): Pr
     const child = launch('codex', args, { stdio: ['ignore', 'ignore', 'ignore'], shell: false });
     const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Game Master timed out.')); }, timeoutMs);
     child.once('error', error => { clearTimeout(timer); reject(error); });
-    child.once('close', code => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error('Game Master exited unsuccessfully.')); });
+    child.once('close', code => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error(`codex exited with code ${code}.`)); });
   });
 }
 export function validateDare(value: unknown): Omit<DareContent, 'source'> {

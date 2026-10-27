@@ -21,3 +21,8 @@ CLAUDE.md
 
 # copies of Twitch docs (their copyright)
 docs/twitch/
+
+# demo video recordings
+scripts/demo-video/out/
+scripts/demo-video/fail.png
+scripts/demo-video/record.log

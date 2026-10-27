@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Race Control demo stage</title>
+<style>
+/* match the overlay's color-scheme: Chrome paints an opaque backdrop behind iframes whose scheme differs */
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#0e0e10;color:#efeff1;font-family:Inter,system-ui,sans-serif}
+#rec-cursor,#rec-ripple{display:none!important}
+.stream{position:absolute;left:0;top:0;width:1440px;height:810px;background:#000;overflow:hidden}
+.stream iframe{position:absolute;inset:0;width:1440px;height:810px;border:0;background:transparent}
+.live{position:absolute;left:16px;bottom:14px;z-index:5;font:700 13px/1 system-ui;letter-spacing:1px;background:#eb0400;color:#fff;padding:5px 8px;border-radius:4px}
+.caption{position:absolute;left:0;top:810px;width:1440px;height:270px;padding:34px 48px;background:#18181b;border-top:1px solid #2f2f35}
+#step{font:700 15px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:2px;color:#ffc93c;margin-bottom:16px}
+#title{font:800 44px/1.15 system-ui;margin-bottom:14px}
+#sub{font-size:22px;line-height:1.45;color:#adadb8;max-width:1300px}
+.chat{position:absolute;left:1440px;top:0;width:480px;height:1080px;background:#18181b;border-left:1px solid #2f2f35;display:flex;flex-direction:column}
+.chat header{padding:18px 20px;border-bottom:1px solid #2f2f35;font:700 15px/1 system-ui;letter-spacing:1.5px;color:#adadb8;display:flex;justify-content:space-between}
+.chat header span{font-weight:400;letter-spacing:0;font-size:13px}
+#lines{flex:1;overflow:hidden;padding:12px 18px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px}
+.line{font-size:19px;line-height:1.4;overflow-wrap:anywhere;animation:in .25s ease-out}
+.line .who{font-weight:700;margin-right:6px}
+.badge{display:inline-block;font:700 11px/1 system-ui;padding:4px 5px;border-radius:3px;margin-right:6px;vertical-align:3px}
+.badge.bot{background:#9147ff;color:#fff}.badge.host{background:#eb0400;color:#fff}
+.line.bot{background:#232329;margin:0 -10px;padding:6px 10px;border-left:3px solid #9147ff}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<section class="stream">
+  <iframe id="hud" title="Game HUD"></iframe>
+  <iframe id="overlay" title="Race Control overlay" allowtransparency="true"></iframe>
+  <div class="live">LIVE DEMO</div>
+</section>
+<section class="caption"><div id="step"></div><div id="title"></div><div id="sub"></div></section>
+<aside class="chat"><header>STREAM CHAT <span>crowd simulator + mock chat</span></header><div id="lines"></div></aside>
+<script>
+const colors = ['#ff7f50','#1e90ff','#00ff7f','#ff69b4','#daa520','#9acd32','#00ced1','#ff4500','#b19cd9'];
+const hue = name => colors[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
+window.setup = base => {
+  document.getElementById('hud').src = `${base}/hud-test?kills=0`;
+  document.getElementById('overlay').src = `${base}/overlay`;
+  window.base = base;
+};
+window.setKills = n => { document.getElementById('hud').src = `${window.base}/hud-test?kills=${n}`; };
+window.caption = (step, title, sub = '') => {
+  document.getElementById('step').textContent = step;
+  document.getElementById('title').textContent = title;
+  document.getElementById('sub').textContent = sub;
+};
+window.chat = (who, text, kind = '') => {
+  const line = document.createElement('div');
+  line.className = `line ${kind}`;
+  if (kind === 'bot' || kind === 'host') {
+    const badge = document.createElement('span');
+    badge.className = `badge ${kind}`; badge.textContent = kind === 'bot' ? 'BOT' : 'HOST';
+    line.append(badge);
+  }
+  const name = document.createElement('span');
+  name.className = 'who'; name.textContent = `${who}:`;
+  name.style.color = kind === 'bot' ? '#bf94ff' : kind === 'host' ? '#ff6b6b' : hue(who);
+  line.append(name, document.createTextNode(text));
+  const lines = document.getElementById('lines');
+  lines.append(line);
+  while (lines.children.length > 40) lines.firstChild.remove();
+};
+</script>
+</body>
+</html>

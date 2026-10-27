@@ -145,6 +145,7 @@ export class DareLoop {
           });
         }).catch(error => this.run(async () => {
           if (this.compiling !== ruleId) return;
+          this.log(`Rules Compiler failed: ${String(error?.message ?? error).slice(0, 200)}`);
           const reason = ['banned code', 'failed examples', 'invalid output'].includes(error?.message) ? error.message as string : 'compilation failed';
           await this.append({ agent: 'RulesCompiler', type: 'rule_failed', data: { ruleId, text: command.text, reason } });
           this.say(`Rule failed: ${reason}. Try rewording.`);

@@ -1,0 +1,15 @@
+{
+ "intro": "This is Race Control: an AI referee and game master for Twitch, where a solo streamer plays against their own chat.",
+ "dare": "The streamer types dare. The Game Master, a live Codex call, writes a fresh dare for this game in a few seconds.",
+ "approve": "Nothing goes live without the streamer. They approve it, or reroll for a new one.",
+ "vote": "Now chat votes on the loadout: a number, the option's first word, or pick. Fans also predict whether the streamer will make it.",
+ "locked": "The vote locks, and from here nobody types kills.",
+ "watcher": "The Watcher reads the kill counter straight from the game HUD through OBS, using on-device text recognition, and books every kill in the Ledger.",
+ "won": "Target reached: dare won. Fans who called it score a point, all derived by replaying the Ledger.",
+ "rule": "Now the streamer changes the rules, in plain English: wrong calls lose a point.",
+ "audit": "The Rules Compiler, one Codex model, writes the scoring code. The Auditor, a second model, writes its own without seeing the first.",
+ "adopt": "They must agree on every case: {cases} out of {cases}. The streamer previews the new standings, then adopts the rule.",
+ "replay": "The whole stream is re-scored. Fans who guessed wildly drop, and careful fans climb.",
+ "outro": "Race Control was built in a single Codex thread, and Codex runs three of its agents live. Streamer versus chat, refereed by agents.",
+ "watcher+": "Each kill needs two matching reads, and impossible jumps are ignored, so one glitchy frame can't win a dare."
+}
