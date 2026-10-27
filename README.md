@@ -1,5 +1,28 @@
 # Race Control
 
+## Try it in 2 minutes (judges)
+
+Requirements: **Node.js 22+**. The Codex CLI is optional: a logged-in `codex` enables the live Game Master and `!rule`. No Twitch app, OBS, or Codex login is required for the dare loop.
+
+```sh
+git clone https://github.com/Ramy888/race-control.git
+cd race-control
+npm install
+npm run demo
+```
+
+Open **http://127.0.0.1:3000/demo** and press **Auto-play**. If 3000 is busy, use `PORT=3001 npm run demo` and open **http://127.0.0.1:3001/demo**. The launcher prints both page URLs; it does not open a browser.
+
+- A generated dare (or labelled fallback sample), streamer approval, then six viewers voting and predicting.
+- Simulated kills, a resolved dare, fan scores, and the agents' hand-offs in the live overlay.
+- A compiled/audited rule and retroactive standings after adoption when Codex is available; otherwise a clear message explains that rule compilation needs Codex.
+
+`npm run demo` starts fresh in **`.data/demo.jsonl`**, never the live `.data/ledger.jsonl`. **Reset demo** clears only that demo Ledger, cancels acceptance of old AI results, and starts a new loop. The vote lasts 10 seconds; the dare lasts 6 seconds per target kill, with a 20-second minimum. The Watcher stays off unless `WATCHER_SOURCE` is set. Missing CLI or authentication falls back to sample dares; a detected CLI may still need login/model access.
+
+`npm test` runs all tests offline, with injected AI/OCR runners and localhost mock servers. No real Twitch, OBS, or Codex calls are needed.
+
+Hosted demo: (coming soon)
+
 Race Control is a local AI game master and referee for a solo Twitch streamer versus their chat. Chat votes on a dare, the streamer approves it, and the Watcher reads kills from the game's HUD through OBS. The Ledger records the result and derives fan standings by replay; the streamer can also adopt a Codex-compiled scoring rule after an independent audit. An OBS overlay shows the dare, predictions, standings, and agent hand-offs.
 
 ## Agents
@@ -174,9 +197,9 @@ Only a running dare is sampled. Polls never overlap; a slow screenshot/OCR read 
 
 `.data/ledger.jsonl` stores `{ seq, at, agent, type, data }` records. State is derived only by pure `replay`: current dare and tallies, one-based winning option, progress, per-user fan scores, and the last 20 events. Ties (including no votes) select the lowest option number. By default a correct final prediction earns +1 per dare; an adopted house rule replaces that hook retroactively; overrules recalculate that score without double-crediting.
 
-The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired dare and rule proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes from the optional Watcher or the streamer's manual `!kill`.
+The run deadline starts after voting ends. `VOTE_SECONDS`, `SECONDS_PER_KILL`, and `MIN_DARE_SECONDS` accept integers 1–600 and default to 30, 30, and 90. The approve path clamps the running duration between the configured minimum and 600 seconds; the model cannot set timings. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired dare and rule proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes from the optional Watcher or the streamer's manual `!kill`.
 
-Both modes share `.data/ledger.jsonl`. Run only one process at a time. To reset a demo, stop it and move that file aside as a backup before restarting. The writer does not silently discard corrupt or partial records; an incomplete final line needs repair before restart. Bot messages are best-effort and are not replayed as a delivery queue.
+Live and ordinary mock modes default to `.data/ledger.jsonl`; `LEDGER_PATH` can select another file. The judge demo always uses `.data/demo.jsonl`. Run only one process per Ledger file. To reset a demo, stop it and move that file aside as a backup before restarting. The writer does not silently discard corrupt or partial records; an incomplete final line needs repair before restart. Bot messages are best-effort and are not replayed as a delivery queue.
 
 ## Setup
 

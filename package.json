@@ -2,6 +2,7 @@
   "name": "race-control",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {
@@ -10,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "auth": "tsx src/auth.ts",
+    "demo": "tsx src/demo-main.ts",
     "mock": "MOCK=1 tsx watch src/main.ts",
     "crowd": "tsx src/crowd.ts",
     "hud:calibrate": "tsx src/hud-calibrate.ts"

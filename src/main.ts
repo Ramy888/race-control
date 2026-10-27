@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { MockSession, codexAvailable } from './demo.js';
 import { startWatcher } from './watcher.js';
 import { loadConfig } from './config.js';
 import { DareLoop } from './dares.js';
@@ -15,21 +16,28 @@ process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
 try {
   const config = loadConfig(process.env);
-  const ledger = await Ledger.open();
-  let loop: DareLoop;
+  let state: () => import('./ledger.js').RaceState;
+  let recordHud: (id: string, delta: number) => Promise<void>;
   if (config.mock) {
-    loop = new DareLoop(ledger, config.broadcasterLogin, async message => { console.log(`[chat] ${message}`); }, undefined, undefined, undefined, config);
-    cleanup.push(() => loop.stop());
-    await loop.start();
-    const local = await startLocalServer(config.port, ledger, chat => loop.handle(chat));
+    const available = await codexAvailable();
+    if (!available) console.log('Codex CLI not found: Game Master uses sample dares; !rule needs Codex.');
+    const session = await MockSession.open(config, available);
+    state = () => session.state;
+    recordHud = (id, delta) => session.recordHud(id, delta);
+    cleanup.push(() => session.stop());
+    const local = await startLocalServer(config.port, session, chat => session.handle(chat), undefined, undefined, session);
     cleanup.push(local.stop);
+    console.log(`Demo page: http://127.0.0.1:${config.port}/demo`);
     console.log(`Mock chat: http://127.0.0.1:${config.port}/mock/chat — broadcaster: ${config.broadcasterLogin}. Send !dare to start.`);
   } else {
+    const ledger = await Ledger.open(config.ledgerPath);
     const tokens = new TokenManager(config);
     const { broadcaster, bot } = await tokens.validateAll();
     const queue = new RateLimitQueue();
     const api = new TwitchApi(config.clientId, broadcaster.userId!, bot.userId!, tokens, queue);
-    loop = new DareLoop(ledger, config.broadcasterLogin, message => api.send(message), undefined, undefined, undefined, config);
+    const loop = new DareLoop(ledger, config.broadcasterLogin, message => api.send(message), undefined, undefined, undefined, config);
+    state = () => ledger.state;
+    recordHud = (id, delta) => loop.recordHud(id, delta);
     cleanup.push(() => { loop.stop(); queue.stop(); });
     await loop.start();
     const local = await startLocalServer(config.port, ledger);
@@ -51,8 +59,8 @@ try {
     client.start();
     console.log(`Race Control starting in #${config.broadcasterLogin} as ${config.botLogin}.`);
   }
-  if (config.watcher) cleanup.push(await startWatcher(config.watcher, () => ledger.state, (id, delta) => loop.recordHud(id, delta)));
-  console.log(`OBS overlay: http://localhost:${config.port}/overlay (1920×1080).`);
+  if (config.watcher) cleanup.push(await startWatcher(config.watcher, state, recordHud));
+  console.log(`OBS overlay: http://127.0.0.1:${config.port}/overlay (1920×1080).`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Race Control failed to start.');
   process.exitCode = 1;

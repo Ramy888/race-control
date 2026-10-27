@@ -23,6 +23,9 @@ export function loadWatcherConfig(env: NodeJS.ProcessEnv): WatcherConfig {
 
 export interface Config {
   mock?: boolean;
+  demo?: boolean;
+  ledgerPath?: string;
+  minDareMs?: number;
   watcher?: WatcherConfig;
   game?: string;
   gamemaster?: boolean;
@@ -37,7 +40,14 @@ export interface Config {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
-  const master = { watcher: loadWatcherConfig(env), game: env.GAME?.trim() || 'Fortnite', gamemaster: env.GAMEMASTER !== 'off', voteMs: 30_000, killMs: 30_000 };
+  const seconds = (key: string, fallback: number) => {
+    const value = env[key] === undefined ? fallback : Number(env[key]);
+    if (!Number.isInteger(value) || value < 1 || value > 600) throw new Error(`${key} must be an integer between 1 and 600 seconds.`);
+    return value * 1000;
+  };
+  const ledgerPath = env.LEDGER_PATH ?? '.data/ledger.jsonl';
+  if (!ledgerPath.trim() || ledgerPath.includes('\0')) throw new Error('LEDGER_PATH must be a non-empty file path.');
+  const master = { demo: env.DEMO === '1', ledgerPath, minDareMs: seconds('MIN_DARE_SECONDS', 90), watcher: loadWatcherConfig(env), game: env.GAME?.trim() || 'Fortnite', gamemaster: env.GAMEMASTER !== 'off', voteMs: seconds('VOTE_SECONDS', 30), killMs: seconds('SECONDS_PER_KILL', 30) };
   if (env.MOCK === '1') {
     const port = Number(env.PORT?.trim() || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535.');

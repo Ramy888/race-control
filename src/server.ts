@@ -1,12 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
+import type { MockSession } from './demo.js';
 import type { ChatInput } from './commands.js';
 import type { Ledger } from './ledger.js';
 import { mockChatHandler } from './mock.js';
 import { toOverlayView } from './overlay.js';
 
-export function localHandler(html: string, chat?: (input: ChatInput) => Promise<void>, hud = '') {
+export function localHandler(html: string, chat?: (input: ChatInput) => Promise<void>, hud = '', demoHtml = '', demo?: MockSession) {
   const mock = chat ? mockChatHandler(chat) : undefined;
   return (req: IncomingMessage, res: ServerResponse): void => {
     const path = req.url?.split('?')[0]; // OBS sources may add query strings (e.g. /hud-test?kills=3).
@@ -16,6 +17,15 @@ export function localHandler(html: string, chat?: (input: ChatInput) => Promise<
     } else if (req.method === 'GET' && path === '/hud-test') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(hud);
+    } else if (mock && req.method === 'GET' && path === '/demo') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).end(demoHtml);
+    } else if (mock && demo && req.method === 'GET' && path === '/demo/config') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ broadcaster: demo.config.broadcasterLogin, canReset: demo.canReset, codex: demo.hasCodex }));
+    } else if (mock && demo && req.method === 'GET' && path === '/demo/events') {
+      demo.feed.connect(res, Number(req.headers['last-event-id']) || 0);
+    } else if (mock && demo && req.method === 'POST' && path === '/demo/reset') {
+      if (!demo.canReset) { res.writeHead(409).end('Reset requires npm run demo.'); return; }
+      void demo.reset().then(() => res.writeHead(200).end('Reset'), () => res.writeHead(500).end('Demo reset failed. Check the server.'));
     } else if (mock && path === '/mock/chat') {
       void mock(req, res);
     } else {
@@ -51,19 +61,22 @@ export function publishOverlay(ledger: Pick<Ledger, 'state' | 'onAppend'>, socke
 }
 
 export async function startLocalServer(
-  port: number, ledger: Ledger, chat?: (input: ChatInput) => Promise<void>,
+  port: number, ledger: Pick<Ledger, 'state' | 'onAppend'>, chat?: (input: ChatInput) => Promise<void>,
   makeServer = createServer,
   makeSockets = (server: Server) => new WebSocketServer({ server, path: '/overlay/ws', maxPayload: 1024 }),
+  demo?: MockSession,
 ) {
   const html = await readFile(new URL('../public/overlay.html', import.meta.url), 'utf8');
   const hud = await readFile(new URL('../public/hud-test.html', import.meta.url), 'utf8');
-  const server = makeServer(localHandler(html, chat, hud));
+  const demoHtml = chat ? await readFile(new URL('../public/demo.html', import.meta.url), 'utf8') : '';
+  const server = makeServer(localHandler(html, chat, hud, demoHtml, demo));
   const sockets = makeSockets(server);
   // ws forwards HTTP-server errors; the listen promise below handles startup failures.
   sockets.on('error', () => {});
   const unpublish = publishOverlay(ledger, sockets);
   const stop = () => {
     unpublish();
+    demo?.feed.stop();
     for (const socket of sockets.clients) socket.terminate();
     sockets.close();
     server.close();

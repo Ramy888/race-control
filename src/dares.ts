@@ -32,7 +32,7 @@ export class DareLoop {
     private readonly time: Clock = clock,
     private readonly log: (message: string) => void = console.error,
     private readonly master: (context: MasterContext) => Promise<DareContent> = generateDare,
-    private readonly settings: Pick<Config, 'game' | 'gamemaster' | 'voteMs' | 'killMs'> = {},
+    private readonly settings: Pick<Config, 'game' | 'gamemaster' | 'voteMs' | 'killMs' | 'minDareMs'> = {},
     private readonly compiler: typeof compileRule = compileRule,
   ) {}
 
@@ -178,7 +178,7 @@ export class DareLoop {
         if (!broadcaster || this.generating || !state.proposal) return;
         const { proposalId: _, expiresAt: __, ...content } = state.proposal;
         const voteMs = this.settings.voteMs ?? 30_000;
-        const dareMs = Math.max(90_000, Math.min(600_000, content.target.count * (this.settings.killMs ?? 30_000)));
+        const dareMs = Math.max(this.settings.minDareMs ?? 90_000, Math.min(600_000, content.target.count * (this.settings.killMs ?? 30_000)));
         const voteEndsAt = this.time.now() + voteMs;
         await this.append({ agent: 'Commissioner', type: 'dare_opened', data: {
           ...content, dareId: randomUUID(), voteEndsAt: new Date(voteEndsAt).toISOString(),
