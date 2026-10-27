@@ -1,13 +1,29 @@
 # Race Control
 
-A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, an AI Game Master with streamer approval, an OBS overlay, and a local mock audience. A Rules Compiler and independent Auditor let the streamer change scoring live. The optional Watcher reads a kill counter from OBS using local macOS Vision OCR.
+Race Control is a local AI game master and referee for a solo Twitch streamer versus their chat. Chat votes on a dare, the streamer approves it, and the Watcher reads kills from the game's HUD through OBS. The Ledger records the result and derives fan standings by replay; the streamer can also adopt a Codex-compiled scoring rule after an independent audit. An OBS overlay shows the dare, predictions, standings, and agent hand-offs.
 
-## Try it without Twitch
+## Agents
+
+| Agent | Role | Source |
+| --- | --- | --- |
+| Game Master | Generates a dare with Codex, with sample fallbacks. | [gamemaster.ts](src/gamemaster.ts) |
+| Commissioner | The streamer approves/rerolls dares, adopts/rejects rules, and overrules results. | [dares.ts](src/dares.ts) |
+| Rules Compiler | Compiles the streamer's scoring instructions into a JavaScript scoring hook. | [rules.ts](src/rules.ts) |
+| Auditor | Independently compiles the same rule and compares examples, history, and synthetic cases. | [rules.ts](src/rules.ts) |
+| Watcher | Reads the kill counter from OBS frames using local macOS Vision OCR. | [watcher.ts](src/watcher.ts), [ocr.swift](tools/ocr.swift) |
+| Referee | Locks votes, resolves dares, and expires pending proposals. | [dares.ts](src/dares.ts) |
+| Ledger | Appends events and replays history to derive state and fan scores. | [ledger.ts](src/ledger.ts) |
+
+## Demo in 2 minutes
+
+### Try it without Twitch
+
+Run this demo when the live bot is not using the shared port and Ledger. The sample dare works offline; the final `!rule` step needs an installed, authenticated Codex CLI.
 
 No Twitch registration, credentials, tokens, or Twitch CLI are needed. Install dependencies once with `npm install`, then:
 
 ```sh
-GAMEMASTER=off npm run mock
+BROADCASTER_LOGIN=streamer GAMEMASTER=off npm run mock
 ```
 
 The mock server binds **127.0.0.1 only**, using `PORT` (default `3000`) and `BROADCASTER_LOGIN` (default `streamer`). Twitch config is ignored; `GAME` and `GAMEMASTER` still apply. Set `GAMEMASTER=off` for fully offline sample dares. Replies appear in the terminal prefixed with `[chat]`. Mock logins are normalized to lowercase, with `userId = login`.
@@ -25,14 +41,24 @@ npm run crowd -- 20
 
 `crowd` is a **simulator for demos without a live audience**. Each of 20 viewers sends a random `!pick N`, then `!yes` or `!no`, with small random delays. It can run before a dare, but those votes will be ignored; run it during the vote to see a tally. It uses `PORT` from `.env`. Repeating it reuses the same viewer identities, replacing their votes rather than adding extra voters.
 
-The first dare has a **30-second vote**, then **90 seconds to get 3 kills**. Wait for “Vote locked” in the mock terminal, then run this command three times:
+With a fresh Ledger, the first sample has a **30-second vote**, then **90 seconds to get 3 kills**. Wait for “Vote locked”. With the Watcher configured, use the [Test HUD](#test-hud-for-demos-without-a-game) to add three kills after its baseline settles. Otherwise, run this manual correction three times (do not also count those kills through OCR):
 
 ```sh
 curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
   -d '{"user":"streamer","text":"!kill"}'
 ```
 
-The third kill resolves the dare early. To demonstrate a failure, let the 90 seconds expire. Then flip the result and recalculate fan scores:
+The third kill resolves the dare early. Now change the scoring rule, wait for “Rule ready” and the before/after preview, then adopt it:
+
+```sh
+curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
+  -d '{"user":"streamer","text":"!rule wrong calls lose a point"}'
+# Wait for the matching audit before adopting:
+curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
+  -d '{"user":"streamer","text":"!adopt"}'
+```
+
+Every resolved dare is re-scored. To demonstrate a failure instead, let the dare deadline expire. After resolution, you can flip the result and recalculate fan scores:
 
 ```sh
 curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
@@ -40,6 +66,8 @@ curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
 ```
 
 If you configured a different broadcaster login or port, substitute it in the curl commands. Another `!dare` proposes the next sample: a 30-second vote, then 7:30 for 15 kills after approval. Samples alternate (including rerolls), with the next sample index recovered from the Ledger.
+
+### Commands
 
 | Command | Who | When |
 | --- | --- | --- |
@@ -86,13 +114,22 @@ The only hook is `points(ctx)`: `{ correct, yes, success, overruled, yesCount, n
 
 `node:vm` is a demo shortcut, **not a security boundary**. Rules are broadcaster-only and Codex-generated, behind the ban-list and audit. Move execution to a worker or isolate before accepting rules from anyone else. The audit establishes agreement on the tested cases; the streamer still decides whether to adopt the interpretation.
 
-## OBS overlay
+## OBS setup
 
-1. Start `npm run mock` (no credentials), or `npm run dev` with Twitch authorization.
-2. In OBS, add a **Browser Source** using **http://localhost:3000/overlay**.
-3. Set **Width: 1920**, **Height: 1080**, and place it above your gameplay source.
+Start the local service in mock or live mode, then arrange these sources in OBS (top source renders above the others):
 
-The page background is transparent. The top-left fan board, top-right dare and prediction cards, and bottom agent feed leave gameplay visible. Open the same URL in a browser to preview it; smaller viewports scale the whole 1920×1080 canvas proportionally.
+| Layer | Source | URL / settings |
+| --- | --- | --- |
+| Above | **Race Control overlay**, Browser Source | **http://127.0.0.1:3000/overlay**, Width **1920**, Height **1080** |
+| Below | **Test HUD**, Browser Source, for demos without a game | **http://127.0.0.1:3000/hud-test?kills=0**, Width **1920**, Height **1080** |
+
+For Fortnite, replace the Test HUD layer with your game capture at 1920×1080. Set `WATCHER_SOURCE` to **Test HUD** or the game capture's exact source name—not the combined scene or overlay. The Watcher screenshots that source by itself, so the overlay never blocks OCR.
+
+The transparent overlay puts the dare and predictions on the left, fans and rules below the minimap on the right, and the latest three agent events in a small bottom-centre strip. It leaves Fortnite's top-right HUD, health/shields, inventory, and central action area clear. Smaller viewports retain the 1920×1080 scale-to-fit behaviour. The Test HUD's `?kills=N` sets its starting count (0–999), for example **http://127.0.0.1:3000/hud-test?kills=7**.
+
+**Blank Browser Source on macOS:** untick **Settings → Advanced → Enable Browser Source Hardware Acceleration**, click **Apply**, and fully quit OBS with **⌘Q** before reopening it. Closing the window is not enough.
+
+### OBS overlay
 
 Snapshots arrive over `/overlay/ws` immediately, after Ledger writes, and once per second during active dares. Countdowns use server time. On a `tsx watch` restart the overlay reconnects automatically with backoff; a disconnected countdown freezes and shows a reconnect notice. Resolved dares retain their outcome and OVERRULED tag across restarts.
 
@@ -115,11 +152,11 @@ The Watcher is optional and runs in both live and mock modes. It uses OBS screen
    WATCHER_MS=2000
    ```
 
-   Replace `Test HUD` with the exact OBS source or scene name for a real game. Empty `WATCHER_SOURCE` disables the Watcher. Start/restart the service when you want these settings applied. It logs the selected source, region and interval, never the password. OBS can start later; the client retries lost connections with backoff.
+   Replace `Test HUD` with the exact isolated game-capture source name for a real game. Empty `WATCHER_SOURCE` disables the Watcher. Start/restart the service when you want these settings applied. It logs the selected source, region and interval, never the password. OBS can start later; the client retries lost connections with backoff.
 
 ### Test HUD for demos without a game
 
-Add an OBS **Browser Source** named **Test HUD**, URL **http://localhost:3000/hud-test**, Width **1920**, Height **1080**. The page is a game-like test frame, not real game footage. Its numeric box is at `(1632,108)` with size `192×108`; the default `HUD_REGION` matches it, with the TEST HUD and ELIMINATIONS labels outside the crop.
+Add the **Test HUD** Browser Source as described in [OBS setup](#obs-setup). The page is a game-like test frame, not real game footage. Its numeric box is at `(1632,108)` with size `192×108`; the default `HUD_REGION` matches it, with the TEST HUD and ELIMINATIONS labels outside the crop.
 
 Use OBS's **Interact** command on that source, click inside, then press **Space** or **K** to add a kill and **R** to reset. Interacting with a separate browser tab changes only that tab, not OBS's instance. Request and approve a dare as usual. After voting locks, leave the counter unchanged for two reads (roughly 4–6 seconds) to establish the baseline. Then add kills and let the counter remain stable long enough for two matching reads. The agent feed shows `HUD: kills N/target`, and reaching the target resolves the dare automatically. `GAMEMASTER=off` makes this demo use sample dares without Codex.
 

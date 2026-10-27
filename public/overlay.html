@@ -12,50 +12,42 @@
 .panel{background:rgba(11,13,16,.94)}.mono{font-family:'JetBrains Mono',monospace;font-weight:500}
 .eyebrow{font-family:'JetBrains Mono',monospace;font-size:17px;letter-spacing:1.5px;color:var(--muted)}
 .heading{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;text-transform:uppercase}
-.badge{position:absolute;left:36px;top:36px;padding:9px 18px;background:var(--yellow);color:var(--ink);font-size:27px;letter-spacing:1.5px}
-.left{position:absolute;left:36px;top:108px;width:402px;display:flex;flex-direction:column;gap:18px}.fans{padding:18px 21px}.fans .eyebrow{font-size:16px;margin:0 0 18px}
-.fan{display:flex;align-items:center;gap:12px;margin:13px 0;font-size:21px}.rank{color:var(--muted);width:20px}.login{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.score{font-size:18px;color:var(--yellow)}.muted{color:var(--muted);font-size:18px;line-height:1.5}
-.right{position:absolute;right:36px;top:36px;width:558px;display:flex;flex-direction:column;gap:24px}
-.dare{padding:24px;box-shadow:inset 0 4px 0 var(--yellow);min-height:350px;display:flex;flex-direction:column;gap:18px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:16px}.accent{color:var(--yellow)}
-#phase{font-size:16px;color:var(--muted)}h1{font-size:45px;line-height:1.05;margin:0;overflow-wrap:anywhere}
-#idle{padding:18px 0}#idle p{margin:18px 0 0}.waiting{font-size:35px;line-height:1.2;text-transform:none}
-.option{margin:15px 0}.option .row{font-size:18px;line-height:1.5;margin-bottom:8px}.option-name{flex:1;overflow-wrap:anywhere}
-.track{height:12px;background:var(--line);overflow:hidden}.fill{height:100%;width:100%;transform-origin:left;transform:scaleX(0);background:var(--yellow);transition:transform .25s ease-out}
-#winner{font-size:23px;line-height:1.4;color:var(--text);margin:2px 0 18px}#progress{font-size:72px;line-height:1}
-#running .row{align-items:baseline;margin-bottom:18px}.clock{border-top:1px solid var(--line);padding-top:16px;margin-top:auto;font-size:18px}
-#countdown{font-size:25px;color:var(--yellow);font-variant-numeric:tabular-nums}#result{font-size:64px;line-height:1.1;padding:12px 0;color:var(--yellow)}
-#resolved.loss #result{color:var(--orange)}#overruled{display:inline-block;border:1px solid var(--orange);color:var(--orange);padding:7px 10px;font-size:16px;margin-top:12px}
-.predictions{padding:21px 24px;display:flex;flex-direction:column;gap:15px}.predictions .eyebrow{color:var(--cyan);font-size:16px}
-.prediction-bar{display:flex;height:42px;background:var(--line)}#yes-bar{background:var(--cyan)}#no-bar{background:var(--orange)}
-.prediction-labels{font-size:20px}.yes{color:var(--cyan)}.no{color:var(--orange)}#prediction-note{font-size:17px;margin:0}
-footer{position:absolute;bottom:0;left:0;right:0;height:126px;padding:15px 36px;background:rgba(11,13,16,.96);border-top:1px solid var(--line);display:flex;align-items:center;gap:24px}
-.strip-label{width:150px;flex-shrink:0}.strip-label .heading{font-size:27px;letter-spacing:1px;color:var(--yellow)}#chat-count{font-size:13px;color:var(--muted);margin-top:8px}
-#agents{display:flex;gap:12px;flex:1;min-width:0}.agent{flex:1;min-width:0;padding:10px 12px;background:#15181E;border:1px solid var(--line)}
-.agent-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:6px}.agent-text{font-size:16px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.agent.latest{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}.latest .agent-name{color:#493800}.footer-right{width:175px;flex-shrink:0;text-align:right;font-size:17px;color:var(--muted)}
-#connection{display:block;font-size:12px;color:var(--orange);margin-top:8px}[hidden]{display:none!important}
-.rule-panel{padding:18px 21px;overflow-wrap:anywhere}.rule-panel p{font-size:17px;line-height:1.4;margin:12px 0}.rule-preview{display:grid;grid-template-columns:1fr 1fr;gap:12px}.rule-preview div{min-width:0}.rule-fan{font-size:15px;line-height:1.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#house-rule{font-size:17px;line-height:1.5;color:var(--yellow)}
+.left{position:absolute;left:36px;top:36px;width:460px;max-height:832px;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+.right{position:absolute;right:36px;top:400px;width:400px;max-height:468px;overflow:hidden;display:flex;flex-direction:column;gap:8px}
+.left>*,.right>*{flex-shrink:0;min-width:0}.panel{overflow:hidden;overflow-wrap:anywhere}
+.badge{align-self:flex-start;padding:9px 18px;background:var(--yellow);color:var(--ink);font-size:27px;letter-spacing:1.5px}
+.fans{padding:10px 14px}.fans .eyebrow{font-size:13px;margin:0 0 8px;line-height:16px}
+.fan{display:flex;align-items:center;gap:10px;margin:4px 0;font-size:16px;line-height:20px}.rank{color:var(--muted);width:16px}.login{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.score{font-size:14px;color:var(--yellow)}.muted{color:var(--muted);font-size:15px;line-height:1.35}
+.dare{padding:16px;box-shadow:inset 0 4px 0 var(--yellow);min-height:280px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.accent{color:var(--yellow)}
+.dare .eyebrow,#phase{font-size:14px}#phase{color:var(--muted);flex-shrink:0}h1{font-size:36px;line-height:1.05;margin:0;overflow-wrap:anywhere}
+h1,#stakes,#winner,#rule-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}#stakes{margin:0}
+#idle{padding:12px 0}#idle p{margin:12px 0 0}.waiting{font-size:30px;line-height:1.2;text-transform:none}
+#proposal-options{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.option{margin:8px 0}.option .row{font-size:16px;line-height:22px;margin-bottom:6px}.option-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{height:8px;background:var(--line);overflow:hidden}.fill{height:100%;width:100%;transform-origin:left;transform:scaleX(0);background:var(--yellow);transition:transform .25s ease-out}
+#winner{font-size:21px;line-height:1.4;color:var(--text);margin:2px 0 12px}#progress{font-size:64px;line-height:1}
+#running .row{align-items:baseline;margin-bottom:12px}.clock{border-top:1px solid var(--line);padding-top:12px;margin-top:auto;font-size:16px}
+#countdown{font-size:22px;color:var(--yellow);font-variant-numeric:tabular-nums}#result{font-size:56px;line-height:1.1;padding:10px 0;color:var(--yellow)}
+#resolved.loss #result{color:var(--orange)}#overruled{display:inline-block;border:1px solid var(--orange);color:var(--orange);padding:5px 8px;font-size:14px;margin-top:10px}
+.predictions{padding:14px 16px;display:flex;flex-direction:column;gap:10px}.predictions .eyebrow{color:var(--cyan);font-size:13px}
+.prediction-bar{display:flex;height:28px;background:var(--line)}#yes-bar{background:var(--cyan)}#no-bar{background:var(--orange)}
+.prediction-labels{font-size:18px}.yes{color:var(--cyan)}.no{color:var(--orange)}#prediction-note{font-size:14px;margin:0}
+footer{position:absolute;left:740px;bottom:24px;width:440px;height:144px;overflow:hidden;padding:8px 10px;background:rgba(11,13,16,.96);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.strip-label{display:flex;justify-content:space-between;align-items:center}.strip-label .heading{font-size:14px;letter-spacing:1px;color:var(--yellow)}#chat-count{font-size:11px;color:var(--muted)}
+#agents{display:flex;flex-direction:column;gap:4px;min-width:0}.agent{display:flex;align-items:center;gap:8px;min-width:0;padding:3px 6px;background:#15181E;border:1px solid var(--line)}
+.agent:nth-last-child(n+4){display:none}.agent-name{flex:0 0 100px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}.agent-text{flex:1;font-size:13px;line-height:16px;min-width:0}.agent-name,.agent-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent.latest{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}.latest .agent-name{color:#493800}.footer-right{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);margin-top:auto}
+#connection{font-size:10px;color:var(--orange);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}[hidden]{display:none!important}
+.rule-panel{padding:8px 14px;overflow-wrap:anywhere}.rule-panel .eyebrow{font-size:12px;line-height:16px}.rule-panel p{font-size:14px;line-height:17px;margin:5px 0}.rule-preview{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rule-preview div{min-width:0}.rule-fan{font-size:13px;line-height:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#house-rule{font-size:14px;line-height:17px;color:var(--yellow);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}#rule-expiry{font-size:12px;line-height:16px}
 @media(prefers-reduced-motion:reduce){.fill{transition:none}}
 </style>
 </head>
 <body>
 <main id="stage">
-<div class="badge heading">STREAMER vs CHAT</div>
 <div class="left">
-<section class="fans panel" aria-label="Top fans">
-<h2 class="eyebrow">TOP FANS THIS STREAM</h2>
-<div id="fans"><p class="muted">Your first prediction starts here.</p></div>
-</section>
-<section id="house-rule" class="rule-panel panel" hidden></section>
-<section id="rule-card" class="rule-panel panel" hidden aria-label="Proposed scoring rule">
-<div class="eyebrow accent">RULE · REPLAY PREVIEW</div><p id="rule-text"></p><p id="rule-audit" class="mono accent"></p>
-<div class="rule-preview"><div><div class="eyebrow">BEFORE →</div><div id="rule-before"></div></div><div><div class="eyebrow">AFTER</div><div id="rule-after"></div></div></div>
-<p class="muted">Streamer: !adopt / !reject</p><div id="rule-expiry" class="muted"></div>
-</section>
-</div>
-<div class="right">
+<div class="badge heading">STREAMER vs CHAT</div>
 <section class="dare panel" aria-label="Current dare">
 <div class="row"><span class="eyebrow accent">AI DARE · CHAT LOADOUT</span><span id="phase" class="mono">IDLE</span></div>
 <h1 id="title" class="heading" hidden></h1>
@@ -72,6 +64,18 @@ footer{position:absolute;bottom:0;left:0;right:0;height:126px;padding:15px 36px;
 <div class="row prediction-labels mono"><span id="yes" class="yes">YES 0%</span><span id="no" class="no">NO 0%</span></div>
 <div class="prediction-bar"><div id="yes-bar"></div><div id="no-bar"></div></div>
 <p id="prediction-note" class="muted">!yes / !no · Correct predictions earn +1.</p>
+</section>
+</div>
+<div class="right">
+<section class="fans panel" aria-label="Top fans">
+<h2 class="eyebrow">TOP FANS THIS STREAM</h2>
+<div id="fans"><p class="muted">Your first prediction starts here.</p></div>
+</section>
+<section id="house-rule" class="rule-panel panel" hidden></section>
+<section id="rule-card" class="rule-panel panel" hidden aria-label="Proposed scoring rule">
+<div class="eyebrow accent">RULE · REPLAY PREVIEW</div><p id="rule-text"></p><p id="rule-audit" class="mono accent"></p>
+<div class="rule-preview"><div><div class="eyebrow">BEFORE →</div><div id="rule-before"></div></div><div><div class="eyebrow">AFTER</div><div id="rule-after"></div></div></div>
+<p class="muted">Streamer: !adopt / !reject</p><div id="rule-expiry" class="muted"></div>
 </section>
 </div>
 <footer>
