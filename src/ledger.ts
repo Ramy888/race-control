@@ -39,7 +39,7 @@ export const agents = {
   dare_opened: 'Commissioner', vote_cast: 'Chat', prediction_cast: 'Chat',
   vote_locked: 'Referee', progress: 'Referee', dare_resolved: 'Referee', overruled: 'Commissioner',
 } as const;
-export type EventInput = { [K in keyof Payloads]: { type: K; agent: K extends 'dare_opened' ? 'Commissioner' | 'GameMaster' : typeof agents[K]; data: Payloads[K] } }[keyof Payloads];
+export type EventInput = { [K in keyof Payloads]: { type: K; agent: K extends 'dare_opened' ? 'Commissioner' | 'GameMaster' : K extends 'progress' ? 'Referee' | 'Watcher' : typeof agents[K]; data: Payloads[K] } }[keyof Payloads];
 export type LedgerEvent = EventInput & { seq: number; at: string };
 export interface DareState extends Omit<DareSpec, 'options'> {
   options: { title: string; tally: number }[];
@@ -80,7 +80,7 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
   };
   const dares = new Map<string, DareState>();
   for (const event of events) {
-    if (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster')) continue;
+    if (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster') && !(event.type === 'progress' && event.agent === 'Watcher')) continue;
     switch (event.type) {
       case 'rule_proposed':
         if (!state.pendingRule) {
@@ -181,7 +181,7 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
         if (dare.status === 'running' && at <= Date.parse(dare.dareEndsAt) && event.data.stat === dare.target.stat &&
             Number.isFinite(event.data.delta) && event.data.delta > 0) {
           dare.progress += event.data.delta;
-          activity(event.agent, `Kills ${dare.progress}/${dare.target.count}`);
+          activity(event.agent, `${event.agent === 'Watcher' ? 'HUD: kills' : 'Kills'} ${dare.progress}/${dare.target.count}`);
         }
         break;
       case 'dare_resolved':
@@ -248,7 +248,7 @@ export class Ledger {
     ledger.events = content.split('\n').filter(Boolean).map((line, index) => {
       const event = JSON.parse(line) as LedgerEvent;
       if (event.seq !== index + 1 || !Number.isFinite(Date.parse(event.at)) ||
-          !Object.hasOwn(agents, event.type) || (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster')) ||
+          !Object.hasOwn(agents, event.type) || (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster') && !(event.type === 'progress' && event.agent === 'Watcher')) ||
           !event.data || !('dareId' in event.data ? event.data.dareId : 'proposalId' in event.data ? event.data.proposalId : event.data.ruleId)) {
         throw new Error(`Invalid Ledger event at line ${index + 1}.`);
       }

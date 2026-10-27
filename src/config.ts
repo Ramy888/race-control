@@ -1,5 +1,29 @@
+export type HudRegion = [number, number, number, number];
+export interface WatcherConfig { obsUrl: string; obsPassword: string; source: string; region: HudRegion; interval: number }
+export function parseHudRegion(value: string): HudRegion {
+  const parts = value.split(',');
+  const numbers = parts.map(part => Number(part.trim()));
+  const [x, y, w, h] = numbers;
+  if (parts.length !== 4 || parts.some(part => !part.trim()) || numbers.some(n => !Number.isFinite(n)) ||
+      x! < 0 || y! < 0 || w! <= 0 || h! <= 0 || x! + w! > 1 || y! + h! > 1) {
+    throw new Error('HUD_REGION must be x,y,w,h fractions within 0–1, with positive width/height.');
+  }
+  return numbers as HudRegion;
+}
+export function loadWatcherConfig(env: NodeJS.ProcessEnv): WatcherConfig {
+  const obsUrl = env.OBS_URL?.trim() || 'ws://127.0.0.1:4455';
+  let url: URL;
+  try { url = new URL(obsUrl); } catch { throw new Error('OBS_URL must be a ws:// or wss:// URL.'); }
+  if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password || url.hash) throw new Error('OBS_URL must be ws:// or wss:// without embedded credentials.');
+  const interval = Number(env.WATCHER_MS?.trim() || 2000);
+  if (!Number.isInteger(interval) || interval < 1 || interval > 2_147_483_647) throw new Error('WATCHER_MS must be a positive integer (milliseconds).');
+  return { obsUrl, obsPassword: env.OBS_PASSWORD ?? '', source: env.WATCHER_SOURCE?.trim() || '',
+    region: parseHudRegion(env.HUD_REGION?.trim() || '0.85,0.1,0.1,0.1'), interval };
+}
+
 export interface Config {
   mock?: boolean;
+  watcher?: WatcherConfig;
   game?: string;
   gamemaster?: boolean;
   voteMs?: number;
@@ -13,7 +37,7 @@ export interface Config {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
-  const master = { game: env.GAME?.trim() || 'Fortnite', gamemaster: env.GAMEMASTER !== 'off', voteMs: 30_000, killMs: 30_000 };
+  const master = { watcher: loadWatcherConfig(env), game: env.GAME?.trim() || 'Fortnite', gamemaster: env.GAMEMASTER !== 'off', voteMs: 30_000, killMs: 30_000 };
   if (env.MOCK === '1') {
     const port = Number(env.PORT?.trim() || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535.');

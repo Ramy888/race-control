@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race Control · Test HUD</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#0b1017;color:#e4edf5;font-family:system-ui,sans-serif}
+#frame{position:absolute;width:1920px;height:1080px;transform-origin:top left;background:linear-gradient(165deg,#132a3b 0%,#203f43 52%,#16291f 53%,#0c1712 100%)}
+.ridge{position:absolute;inset:300px 0 0;background:#1a3531;clip-path:polygon(0 50%,18% 5%,30% 44%,52% 0,72% 38%,90% 12%,100% 35%,100% 100%,0 100%)}
+.grid{position:absolute;inset:620px 0 0;background:repeating-linear-gradient(90deg,transparent 0 119px,#a3d6b514 120px),repeating-linear-gradient(0deg,transparent 0 79px,#a3d6b514 80px);transform:perspective(400px) rotateX(20deg)}
+.label{position:absolute;left:40px;top:32px;font-size:20px;letter-spacing:4px;color:#ffc93c}
+#kills{position:absolute;left:1632px;top:108px;width:192px;height:108px;display:flex;align-items:center;justify-content:center;background:#050505;color:white;font:700 80px/1 Arial,sans-serif}
+.counter-label{position:absolute;left:1632px;top:70px;font-size:18px;letter-spacing:3px;color:#9eb5c4}
+.crosshair{position:absolute;left:946px;top:526px;width:28px;height:28px;border:2px solid #d5e9e2;border-radius:50%;opacity:.6}
+.instructions{position:absolute;left:40px;bottom:36px;line-height:1.8;color:#b2c8bf;font-size:23px}.instructions strong{color:#ffc93c}
+</style>
+</head>
+<body>
+<main id="frame"><div class="ridge"></div><div class="grid"></div><div class="label">TEST HUD</div>
+<div class="counter-label">ELIMINATIONS</div><div id="kills" aria-label="Kills">0</div><div class="crosshair"></div>
+<div class="instructions"><strong>SPACE / K</strong> add one kill · <strong>R</strong> reset<br>OBS: right-click this Browser Source → Interact, then click inside.</div></main>
+<script>
+// ?kills=N sets the starting count, so OBS or a script can drive the HUD without key presses.
+let kills = Math.max(0, Math.min(999, Number.parseInt(new URLSearchParams(location.search).get('kills') ?? '', 10) || 0));
+document.getElementById('kills').textContent = String(kills);
+addEventListener('keydown', event => {
+  if (event.repeat) return;
+  if (event.code === 'Space' || event.key.toLowerCase() === 'k') { event.preventDefault(); kills = Math.min(999, kills + 1); }
+  else if (event.key.toLowerCase() === 'r') kills = 0;
+  document.getElementById('kills').textContent = String(kills);
+});
+function scale() { document.getElementById('frame').style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; }
+addEventListener('resize', scale); scale();
+</script>
+</body>
+</html>

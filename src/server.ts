@@ -6,13 +6,17 @@ import type { Ledger } from './ledger.js';
 import { mockChatHandler } from './mock.js';
 import { toOverlayView } from './overlay.js';
 
-export function localHandler(html: string, chat?: (input: ChatInput) => Promise<void>) {
+export function localHandler(html: string, chat?: (input: ChatInput) => Promise<void>, hud = '') {
   const mock = chat ? mockChatHandler(chat) : undefined;
   return (req: IncomingMessage, res: ServerResponse): void => {
-    if (req.method === 'GET' && req.url === '/overlay') {
+    const path = req.url?.split('?')[0]; // OBS sources may add query strings (e.g. /hud-test?kills=3).
+    if (req.method === 'GET' && path === '/overlay') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(html);
-    } else if (mock && req.url === '/mock/chat') {
+    } else if (req.method === 'GET' && path === '/hud-test') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(hud);
+    } else if (mock && path === '/mock/chat') {
       void mock(req, res);
     } else {
       res.writeHead(404).end('Not found.');
@@ -52,7 +56,8 @@ export async function startLocalServer(
   makeSockets = (server: Server) => new WebSocketServer({ server, path: '/overlay/ws', maxPayload: 1024 }),
 ) {
   const html = await readFile(new URL('../public/overlay.html', import.meta.url), 'utf8');
-  const server = makeServer(localHandler(html, chat));
+  const hud = await readFile(new URL('../public/hud-test.html', import.meta.url), 'utf8');
+  const server = makeServer(localHandler(html, chat, hud));
   const sockets = makeSockets(server);
   // ws forwards HTTP-server errors; the listen promise below handles startup failures.
   sockets.on('error', () => {});

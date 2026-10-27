@@ -1,6 +1,6 @@
 # Race Control
 
-A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, an AI Game Master with streamer approval, an OBS overlay, and a local mock audience. A Rules Compiler and independent Auditor let the streamer change scoring live. Automatic HUD reading comes later.
+A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, an AI Game Master with streamer approval, an OBS overlay, and a local mock audience. A Rules Compiler and independent Auditor let the streamer change scoring live. The optional Watcher reads a kill counter from OBS using local macOS Vision OCR.
 
 ## Try it without Twitch
 
@@ -100,11 +100,44 @@ The snapshot includes only public aggregates and fan logins/scores, never user I
 
 The single HTML file uses the reference's Barlow Condensed, Inter, and JetBrains Mono fonts via Google Fonts, with local fallbacks if offline. No build step or frontend dependencies are needed.
 
+## Watcher (OBS HUD)
+
+The Watcher is optional and runs in both live and mock modes. It uses OBS screenshots and **macOS-only**, on-device Vision OCR: no paid API, cloud OCR, or new npm packages. Swift and the macOS command-line tools must be installed (`swiftc --version`; install the tools with `xcode-select --install` if needed). The Swift helper compiles to `.data/bin/ocr` on first use or when its source changes. On other operating systems, or if compilation fails, the Watcher stays off with one log line; manual `!kill` still works.
+
+1. In OBS, open **Tools → WebSocket Server Settings**, enable the v5 server, and use port **4455**. If authentication is enabled, supply the matching `OBS_PASSWORD` in your local `.env`; leave it empty when authentication is off.
+2. Set these values in your local `.env` (the checked-in `.env.example` documents them):
+
+   ```dotenv
+   OBS_URL=ws://127.0.0.1:4455
+   OBS_PASSWORD=
+   WATCHER_SOURCE=Test HUD
+   HUD_REGION=0.85,0.1,0.1,0.1
+   WATCHER_MS=2000
+   ```
+
+   Replace `Test HUD` with the exact OBS source or scene name for a real game. Empty `WATCHER_SOURCE` disables the Watcher. Start/restart the service when you want these settings applied. It logs the selected source, region and interval, never the password. OBS can start later; the client retries lost connections with backoff.
+
+### Test HUD for demos without a game
+
+Add an OBS **Browser Source** named **Test HUD**, URL **http://localhost:3000/hud-test**, Width **1920**, Height **1080**. The page is a game-like test frame, not real game footage. Its numeric box is at `(1632,108)` with size `192×108`; the default `HUD_REGION` matches it, with the TEST HUD and ELIMINATIONS labels outside the crop.
+
+Use OBS's **Interact** command on that source, click inside, then press **Space** or **K** to add a kill and **R** to reset. Interacting with a separate browser tab changes only that tab, not OBS's instance. Request and approve a dare as usual. After voting locks, leave the counter unchanged for two reads (roughly 4–6 seconds) to establish the baseline. Then add kills and let the counter remain stable long enough for two matching reads. The agent feed shows `HUD: kills N/target`, and reaching the target resolves the dare automatically. `GAMEMASTER=off` makes this demo use sample dares without Codex.
+
+### Calibration for a real game
+
+```sh
+npm run hud:calibrate
+```
+
+This takes one screenshot of `WATCHER_SOURCE`, saves **`.data/hud.png`**, and prints OCR for the full frame and then the selected region. It needs OBS and macOS OCR, but does not need Twitch credentials or a running dare. Inspect the saved image and tighten `HUD_REGION=x,y,w,h` around only the digits of the kill counter. Coordinates are fractions of the source image with a **top-left origin**: divide horizontal pixels by image width and vertical pixels by height. Width/height must be positive and the whole rectangle must fit within 0–1. Repeat calibration until the region reads the intended number, then apply that region on your next bot restart. Images and the compiled binary stay in gitignored `.data/`.
+
+Only a running dare is sampled. Polls never overlap; a slow screenshot/OCR read skips intervening poll ticks. Two matching readable samples establish a value; unreadable frames are skipped. A rise of 1–5 adds the difference; larger jumps are ignored and logged once per dare. A stable decrease (a new match) establishes a new baseline. Each new dare and each process restart starts with a fresh baseline, so kills during downtime are not reconstructed. `!kill` remains an additive manual correction—avoid manually adding a kill that OCR will also count. Both request and OCR execution time out after five seconds; screenshot temp files are removed after each read.
+
 ## Ledger and restart behavior
 
 `.data/ledger.jsonl` stores `{ seq, at, agent, type, data }` records. State is derived only by pure `replay`: current dare and tallies, one-based winning option, progress, per-user fan scores, and the last 20 events. Ties (including no votes) select the lowest option number. By default a correct final prediction earns +1 per dare; an adopted house rule replaces that hook retroactively; overrules recalculate that score without double-crediting.
 
-The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired dare and rule proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes only from the streamer's manual `!kill` for now.
+The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired dare and rule proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes from the optional Watcher or the streamer's manual `!kill`.
 
 Both modes share `.data/ledger.jsonl`. Run only one process at a time. To reset a demo, stop it and move that file aside as a backup before restarting. The writer does not silently discard corrupt or partial records; an incomplete final line needs repair before restart. Bot messages are best-effort and are not replayed as a delivery queue.
 
@@ -159,7 +192,7 @@ npm run typecheck
 npm test
 ```
 
-Tests use `node:test`, mocked fetch/WebSockets, temporary token files, and controlled clocks. They do not contact Twitch, spawn Codex, or require `.env`. Rule tests inject the runner and use the real VM with synthetic contexts. Coverage includes config, commands and permissions, Ledger replay and persistence, fan scoring and overrules, dare deadlines and restart recovery, mock HTTP input, crowd simulation, OAuth callbacks, token rotation, HTTP requests, rate limiting, and EventSub lifecycle handling.
+Tests use `node:test`, mocked fetch/WebSockets, temporary token files, and controlled clocks. They do not contact Twitch, spawn Codex/Swift, require OBS, or require `.env`. OBS protocol tests use a mock WebSocket server bound to `127.0.0.1` on an OS-assigned port; the HUD route test also uses port 0. Rule tests inject the runner and use the real VM with synthetic contexts. Coverage includes config, commands and permissions, Ledger replay and persistence, fan scoring and overrules, dare deadlines and restart recovery, mock HTTP input, crowd simulation, OAuth callbacks, token rotation, HTTP requests, rate limiting, and EventSub lifecycle handling.
 
 Real Twitch credentials are required to verify browser consent and callback delivery, both grants, live token refresh, EventSub chat delivery, actual chat replies and badge display, and Twitch-driven reconnects/revocations. A quick live check is to send `!ping`, `!race`, and an unknown command from a viewer account, confirm exactly two replies, then send `!ping` from the bot account and confirm no reply.
 

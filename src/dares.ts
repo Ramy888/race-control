@@ -36,6 +36,14 @@ export class DareLoop {
     private readonly compiler: typeof compileRule = compileRule,
   ) {}
 
+  recordHud(dareId: string, delta: number): Promise<void> {
+    return this.run(async () => {
+      const dare = this.ledger.state.currentDare;
+      if (dare?.dareId === dareId && dare.status === 'running' && Number.isInteger(delta) && delta > 0 && delta <= 5) {
+        await this.append({ agent: 'Watcher', type: 'progress', data: { dareId, stat: 'kills', delta } });
+      }
+    });
+  }
   start(): Promise<void> { return this.run(async () => {}); }
   stop(): void { this.stopped = true; this.cancel?.(); }
   private say(message: string): void {

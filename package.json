@@ -11,7 +11,8 @@
     "test": "node --import tsx --test test/*.test.ts",
     "auth": "tsx src/auth.ts",
     "mock": "MOCK=1 tsx watch src/main.ts",
-    "crowd": "tsx src/crowd.ts"
+    "crowd": "tsx src/crowd.ts",
+    "hud:calibrate": "tsx src/hud-calibrate.ts"
   },
   "dependencies": { "dotenv": "^17.2.0", "ws": "^8.18.0" },
   "devDependencies": { "@types/node": "^22.0.0", "@types/ws": "^8.18.0", "tsx": "^4.20.0", "typescript": "^5.9.0" }
