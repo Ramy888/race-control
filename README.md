@@ -256,10 +256,10 @@ All the code was written in one Codex CLI thread (`gpt-6-astra`), session `01a17
 | Twitch chatbot skeleton, EventSub, Helix chat | high | `f42fd05` |
 | Ledger, dare loop, mock mode, crowd simulator | medium | `f42fd05` |
 | OBS overlay (live dare, predictions, agent feed) | medium | `d0b6818` |
-| AI Game Master, streamer approval, easier voting | medium | `48fffa9` |
-| Rules Compiler and Auditor | high | `b4899e5` |
-| Watcher (OBS frames + macOS Vision OCR) | medium | `b98a90d` |
-| HUD-safe overlay layout and README | medium | `bc14dc2` |
+| AI Game Master, streamer approval, easier voting | medium | `7f550af` |
+| Rules Compiler and Auditor | high | `70c37d7` |
+| Watcher (OBS frames + macOS Vision OCR) | medium | `507950c` |
+| HUD-safe overlay layout and README | medium | `9999caa` |
 
 Each task was a written brief covering scope, interfaces, safety rules, tests and the gates `npm run typecheck` and `npm test`. Codex wrote the code and the tests and ran the gates itself: about 2,100 lines of source and 1,900 lines of tests (90 tests). Standing repo rules told it to follow the official Twitch docs, never print secrets, test every non-trivial function, and never commit.
 
