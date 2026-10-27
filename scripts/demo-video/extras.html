@@ -1,0 +1,111 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Race Control extras</title>
+<style>
+:root{color-scheme:dark}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#0e0e10;color:#efeff1;font-family:Inter,system-ui,sans-serif}
+.scene{position:absolute;inset:0 0 270px 0;display:none}
+.caption{position:absolute;left:0;top:810px;width:1920px;height:270px;box-sizing:border-box;padding:34px 48px;background:#18181b;border-top:1px solid #2f2f35}
+#step{font:700 15px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:2px;color:#ffc93c;margin-bottom:16px}
+#title{font:800 44px/1.15 system-ui;margin-bottom:14px}
+#sub{font-size:22px;line-height:1.45;color:#adadb8;max-width:1700px}
+/* Twitch: the real screenshot, cropped to the address bar and chat */
+#twitch .card{position:absolute;left:50%;top:150px;width:1700px;margin-left:-850px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);transform-origin:50% 50%}
+#twitch .bar{background:#dfe3eb;padding:14px 18px}
+#twitch .bar img{display:block;width:1085px;border-radius:23px}
+#twitch .chat{position:relative}
+#twitch .chat img{display:block;width:1700px}
+#twitch .hl{position:absolute;left:0;width:1700px;height:52px;background:rgba(255,201,60,.22);border-left:8px solid #ffc93c;opacity:0;transition:none}
+/* Codex: replayed from the session log */
+#codex .term{position:absolute;left:48px;top:40px;width:1180px;height:730px;background:#0b0b0d;border:1px solid #2f2f35;border-radius:12px;overflow:hidden}
+#codex .term header{padding:14px 18px;border-bottom:1px solid #2f2f35;font:600 17px/1 'JetBrains Mono',ui-monospace,monospace;color:#adadb8;display:flex;justify-content:space-between}
+#codex .log{position:absolute;left:0;right:0;top:48px;bottom:0;padding:16px 20px;font:17px/1.5 'JetBrains Mono',ui-monospace,monospace;overflow:hidden}
+#codex .row{margin-bottom:10px;white-space:pre-wrap;overflow-wrap:anywhere;opacity:0}
+#codex .user{color:#efeff1;background:#1f1f23;padding:10px 12px;border-radius:6px}
+#codex .say{color:#c9c9d1}
+#codex .say::before{content:'• ';color:#10a37f}
+#codex .cmd{color:#7dd3fc}
+#codex .cmd::before{content:'$ ';color:#6b6b75}
+#codex .out{color:#10a37f;font-weight:700}
+#codex .tasks{position:absolute;left:1260px;top:40px;width:612px;background:#18181b;border:1px solid #2f2f35;border-radius:12px;padding:20px 22px;box-sizing:border-box}
+#codex .tasks h3{margin:0 0 16px;font:700 15px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:2px;color:#ffc93c}
+#codex .t{display:flex;gap:14px;align-items:baseline;padding:11px 10px;border-radius:6px;font-size:19px}
+#codex .t b{font:700 16px 'JetBrains Mono',ui-monospace,monospace;color:#adadb8;width:44px}
+#codex .t span{flex:1}
+#codex .t code{font:15px 'JetBrains Mono',ui-monospace,monospace;color:#10a37f}
+#codex .t.on{background:rgba(255,201,60,.16);outline:1px solid #ffc93c}
+</style></head>
+<body>
+<section class="scene" id="twitch">
+  <div class="card">
+    <div class="bar"><img src="out/extras/twitch-url.png" alt=""></div>
+    <div class="chat"><img src="out/extras/twitch-chat.png" alt=""></div>
+  </div>
+</section>
+<section class="scene" id="codex">
+  <div class="term"><header><span>codex exec … resume 01a1731b-46b4-7161-97bd-ea0f9269fbcb</span><span>gpt-6-astra · high</span></header><div class="log"></div></div>
+  <div class="tasks"><h3>TEN BRIEFS → COMMITS</h3></div>
+</section>
+<section class="caption"><div id="step"></div><div id="title"></div><div id="sub"></div></section>
+<script>
+const $ = (s) => document.querySelector(s);
+const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+const SCALE = 1700 / 1250; // chat crop is shown at 1700 px wide
+
+// Twitch rows inside the chat crop (crop pixels), and when each lights up (s)
+const ROWS = [[62, 1.2], [145, 3.2], [186, 5.2], [227, 8.4], [268, 10.0]];
+const chat = $('#twitch .chat');
+for (const [y] of ROWS) { const d = document.createElement('div'); d.className = 'hl'; d.style.top = (y - 20) * SCALE + 'px'; chat.appendChild(d); }
+
+// Task 5 of the Codex thread, quoted from the session log (rollout 2026-10-27 10:41–10:50 UTC); [kind, text, at seconds]
+const LOG = [
+  ['user', 'Task 5: the Rules Compiler and the Auditor. The streamer changes how fans score, in plain English, live on stream. Codex writes the scoring function, a second independent Codex run audits it, the streamer adopts it, and the whole stream’s standings are replayed under the new rule.', 0.4],
+  ['say', 'I’ll add the scoring hook, independent compiler/auditor runs, and rule approval flow, then connect the replay preview to the overlay. I’ll test with injected runners so the tests never spawn Codex.', 1.6],
+  ['cmd', 'cat AGENTS.md; cat src/{rules,ledger,dares,gamemaster,overlay,commands}.ts', 2.8],
+  ['cmd', "cat > src/rules.ts <<'EOF'\nimport { Script } from 'node:vm';", 3.6],
+  ['say', 'The audit will check both sets of examples, historical prediction contexts, and 2,304 synthetic cases, yielding between batches so chat and timers remain responsive.', 4.6],
+  ['cmd', "python3 - <<'PY'\np='src/ledger.ts'", 5.8],
+  ['cmd', "python3 - <<'PY'\np='src/overlay.ts'", 6.4],
+  ['cmd', "cat > test/rules.test.ts <<'EOF'", 7.0],
+  ['out', 'ℹ tests 72   ℹ pass 72   ℹ fail 0', 8.0],
+  ['say', 'The localhost smoke test passed with injected compiler outputs: adoption changed a fan’s score from 1 to 2, and reset restored it to 1.', 9.0],
+  ['cmd', "cat >> test/rules.test.ts <<'EOF'\ntest('underdog and penalty rules replay multiple dares and change standings', () => {", 10.2],
+  ['out', 'ℹ tests 74   ℹ pass 74   ℹ fail 0', 11.2],
+  ['say', 'Implemented independent Rules Compiler/Auditor runs, bounded VM scoring, approval/rejection/reset, restart-safe expiry, retroactive replay, and overlay rank previews. Typecheck and all 74 tests pass.', 12.2],
+];
+const log = $('#codex .log');
+const rows = LOG.map(([kind, text]) => { const d = document.createElement('div'); d.className = 'row ' + kind; d.textContent = text; log.appendChild(d); return d; });
+
+// commits from git log (after the history clean-up)
+const TASKS = [['1–2', 'Twitch chatbot, Ledger, dare loop', 'f42fd05'], ['3', 'OBS overlay', 'd0b6818'], ['4', 'Game Master + approval', '7f550af'],
+  ['5', 'Rules Compiler + Auditor', '70c37d7'], ['6', 'Watcher (OBS + Vision OCR)', '507950c'], ['7', 'HUD-safe polish', '9999caa'],
+  ['8', 'Judge demo + LICENSE', '5afcc2a'], ['9–10', 'Browser playground', '3dce9ff']];
+const list = $('#codex .tasks');
+for (const [n, what, sha] of TASKS) { const d = document.createElement('div'); d.className = 't' + (n === '5' ? ' on' : ''); d.innerHTML = '<b></b><span></span><code></code>'; d.children[0].textContent = n; d.children[1].textContent = what; d.children[2].textContent = sha; list.appendChild(d); }
+
+const CAPTIONS = {
+  twitch: ['LIVE ON TWITCH', 'The same loop in real Twitch chat', 'Captured Oct 27 on twitch.tv/ramyozo8. The bot account ramyozo answers in chat; the rule was compiled and audited by Codex live.'],
+  codex: ['BUILT WITH CODEX', 'Ten written briefs, one Codex thread', 'Replayed from the session log of thread 01a1731b (gpt-6-astra). Shown: Task 5, the Rules Compiler and Auditor, 74 tests passing.'],
+};
+let shown = '';
+window.render = (scene, t) => {
+  if (shown !== scene) {
+    document.querySelectorAll('.scene').forEach((s) => (s.style.display = s.id === scene ? 'block' : 'none'));
+    [$('#step').textContent, $('#title').textContent, $('#sub').textContent] = CAPTIONS[scene];
+    shown = scene;
+  }
+  if (scene === 'twitch') {
+    $('#twitch .card').style.transform = `scale(${1 + 0.06 * ease(t / 14)})`;
+    document.querySelectorAll('#twitch .hl').forEach((d, i) => (d.style.opacity = ease((t - ROWS[i][1]) / 0.4)));
+  } else {
+    // rows keep their layout while hidden, so the log scrolls smoothly to each new line
+    let bottom = 0;
+    rows.forEach((d, i) => {
+      const k = ease((t - LOG[i][2]) / 0.4), end = d.offsetTop + d.offsetHeight;
+      d.style.opacity = k;
+      if (k > 0) bottom = i ? bottom + (end - bottom) * k : end;
+    });
+    rows.forEach((d) => (d.style.transform = `translateY(${-Math.max(0, bottom - log.clientHeight + 40)}px)`));
+  }
+};
+</script>
+</body></html>

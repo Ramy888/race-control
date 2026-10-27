@@ -11,5 +11,7 @@
  "adopt": "They must agree on every case: {cases} out of {cases}. The streamer previews the new standings, then adopts the rule.",
  "replay": "The whole stream is re-scored. Fans who guessed wildly drop, and careful fans climb.",
  "outro": "Race Control was built in a single Codex thread, and Codex runs three of its agents live. Streamer versus chat, refereed by agents.",
- "watcher+": "Each kill needs two matching reads, and impossible jumps are ignored, so one glitchy frame can't win a dare."
+ "watcher+": "Each kill needs two matching reads, and impossible jumps are ignored, so one glitchy frame can't win a dare.",
+ "twitch": "And it runs on real Twitch. The streamer types the rule in chat, the Rules Compiler and Auditor run live in Codex, and the bot posts the result.",
+ "codex": "Every feature started as a written brief to Codex. Here it builds the Rules Compiler: it reads the code, writes it, and runs seventy-four tests before anything is committed."
 }
