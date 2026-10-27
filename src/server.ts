@@ -41,7 +41,7 @@ export function publishOverlay(ledger: Pick<Ledger, 'state' | 'onAppend'>, socke
   const interval = setInterval(() => {
     if (!sockets.clients.size) return;
     const dare = ledger.state.currentDare;
-    if (dare && dare.status !== 'resolved') broadcast();
+    if (ledger.state.proposal || (dare && dare.status !== 'resolved')) broadcast();
   }, 1000);
   return () => { clearInterval(interval); unsubscribe(); sockets.off('connection', connected); };
 }

@@ -227,6 +227,12 @@ test('inline renderer handles all phases safely and reconnects with backoff with
   const render = (view: ReturnType<typeof toOverlayView>) => sockets.at(-1)!.onmessage!({ data: JSON.stringify(view) });
   render(toOverlayView(replay([]), 0));
   assert.equal(node('idle').hidden, false);
+  const proposed = replay([{ seq: 1, at: iso(0), agent: 'GameMaster', type: 'dare_proposed', data: { proposalId: 'private-proposal', title: 'Try this', options: ['SHOTGUN', 'KNIFE'], target: { stat: 'kills', count: 3 }, stakes: 'Victory salute', source: 'fallback' } }]);
+  render(toOverlayView(proposed, 1000));
+  assert.equal(node('proposed').hidden, false);
+  assert.equal(node('stakes').textContent, 'Stakes: Victory salute');
+  assert.equal(node('proposal-options').textContent, '1. SHOTGUN · 2. KNIFE');
+  assert.equal(node('countdown').textContent, '1:59');
   const h = history();
   const view = toOverlayView(replay(h.events), 1000);
   view.topFans = [{ login: '<img src=x onerror=alert(1)>', score: 1 }];

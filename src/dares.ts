@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { parseCommand, type ChatInput } from './commands.js';
 import { voteWinner, type EventInput, type RaceState } from './ledger.js';
 
-export const sampleDares = [
-  { title: "3 kills with chat's pick", options: ['SHOTGUN · no armor', 'SNIPER · no scope', 'KNIFE ONLY'], count: 3, voteMs: 30_000, dareMs: 90_000 },
-  { title: "15 kills with chat's pick", options: ['SHOTGUN · no armor', 'SNIPER · no scope', 'KNIFE ONLY'], count: 15, voteMs: 60_000, dareMs: 600_000 },
-];
+import { generateDare, type DareContent, type MasterContext } from './gamemaster.js';
+import type { Config } from './config.js';
+export { sampleDares } from './gamemaster.js';
 export interface Clock {
   now(): number;
   schedule(callback: () => void, delay: number): () => void;
@@ -23,12 +22,15 @@ export class DareLoop {
   private pending: Promise<unknown> = Promise.resolve();
   private cancel?: () => void;
   private stopped = false;
+  private generating = false;
   constructor(
     private readonly ledger: DareLedger,
     private readonly broadcasterLogin: string,
     private readonly send: (message: string) => Promise<void>,
     private readonly time: Clock = clock,
     private readonly log: (message: string) => void = console.error,
+    private readonly master: (context: MasterContext) => Promise<DareContent> = generateDare,
+    private readonly settings: Pick<Config, 'game' | 'gamemaster' | 'voteMs' | 'killMs'> = {},
   ) {}
 
   start(): Promise<void> { return this.run(async () => {}); }
@@ -52,14 +54,19 @@ export class DareLoop {
   }
   private arm(): void {
     this.cancel?.();
-    const dare = this.ledger.state.currentDare;
-    if (this.stopped || !dare || dare.status === 'resolved') return;
-    const deadline = dare.status === 'voting' ? dare.voteEndsAt : dare.dareEndsAt;
+    const { currentDare: dare, proposal } = this.ledger.state;
+    if (this.stopped || (!proposal && (!dare || dare.status === 'resolved'))) return;
+    const deadline = proposal?.expiresAt ?? (dare!.status === 'voting' ? dare!.voteEndsAt : dare!.dareEndsAt);
     this.cancel = this.time.schedule(() => {
       void this.start().catch(() => { this.stop(); this.log('Dare timer failed. Check the Ledger and restart.'); });
     }, Math.max(0, Date.parse(deadline) - this.time.now()));
   }
   private async advance(): Promise<void> {
+    const proposal = this.ledger.state.proposal;
+    if (proposal && this.time.now() >= Date.parse(proposal.expiresAt)) {
+      await this.append({ agent: 'Referee', type: 'proposal_expired', data: { proposalId: proposal.proposalId } });
+      this.say('Proposal expired. !dare for a new one.');
+    }
     let dare = this.ledger.state.currentDare;
     if (!dare) return;
     if (dare.status === 'voting' && this.time.now() >= Date.parse(dare.voteEndsAt)) {
@@ -79,22 +86,39 @@ export class DareLoop {
 
   handle(chat: ChatInput): Promise<void> {
     return this.run(async () => {
-      const command = parseCommand(chat.text);
+      const current = this.ledger.state.currentDare;
+      const command = parseCommand(chat.text, current?.status === 'voting' ? current.options.map(option => option.title) : []);
       if (!command) return;
       if (command.type === 'reply') { this.say(command.text); return; }
       const broadcaster = chat.login.toLowerCase() === this.broadcasterLogin.toLowerCase();
       const state = this.ledger.state;
       const dare = state.currentDare;
-      if (command.type === 'dare') {
-        if (!broadcaster || (dare && dare.status !== 'resolved')) return;
-        const sample = sampleDares[state.dareCount % sampleDares.length]!;
-        const voteEndsAt = this.time.now() + sample.voteMs;
-        await this.append({ agent: 'GameMaster', type: 'dare_opened', data: {
-          dareId: randomUUID(), title: sample.title, options: sample.options,
-          target: { stat: 'kills', count: sample.count }, voteEndsAt: new Date(voteEndsAt).toISOString(),
-          dareEndsAt: new Date(voteEndsAt + sample.dareMs).toISOString(),
+      if (command.type === 'dare' || command.type === 'reroll') {
+        if (!broadcaster || this.generating || (dare && dare.status !== 'resolved') ||
+            (command.type === 'dare' ? !!state.proposal : !state.proposal)) return;
+        this.generating = true;
+        this.say('Game Master is thinking…');
+        // Do not await generation here: completion rejoins the serialized command queue.
+        void this.master({ game: this.settings.game ?? 'Fortnite', enabled: this.settings.gamemaster !== false,
+          previousTitles: state.recentTitles, sampleIndex: state.proposalCount,
+        }).then(content => this.run(async () => {
+          await this.append({ agent: 'GameMaster', type: 'dare_proposed', data: { proposalId: randomUUID(), ...content } });
+          this.say(`Game Master proposes: ${content.title} — ${content.options.map((o, i) => `${i + 1}: ${o}`).join(' | ')}. Stakes: ${content.stakes.replace(/[.!?]+$/, '')}. !approve or !reroll`);
+        })).catch(() => this.log('Game Master proposal failed. Try !dare or !reroll again.'))
+          .finally(() => { this.generating = false; });
+        return;
+      }
+      if (command.type === 'approve') {
+        if (!broadcaster || this.generating || !state.proposal) return;
+        const { proposalId: _, expiresAt: __, ...content } = state.proposal;
+        const voteMs = this.settings.voteMs ?? 30_000;
+        const dareMs = Math.max(90_000, Math.min(600_000, content.target.count * (this.settings.killMs ?? 30_000)));
+        const voteEndsAt = this.time.now() + voteMs;
+        await this.append({ agent: 'Commissioner', type: 'dare_opened', data: {
+          ...content, dareId: randomUUID(), voteEndsAt: new Date(voteEndsAt).toISOString(),
+          dareEndsAt: new Date(voteEndsAt + dareMs).toISOString(),
         } });
-        this.say(`${sample.title}. ${sample.options.map((option, i) => `${i + 1}: ${option}`).join(' | ')}. !pick N, !yes / !no. Vote: ${sample.voteMs / 1000}s.`);
+        this.say(`${content.title}. ${content.options.map((option, i) => `${i + 1}: ${option}`).join(' | ')}. Vote with a number, option word, or !pick N. !yes / !no. Vote: ${voteMs / 1000}s.`);
         return;
       }
       if (!dare) return;

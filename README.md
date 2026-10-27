@@ -1,22 +1,25 @@
 # Race Control
 
-A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, a manual dare loop, and a local mock audience. The OBS overlay is available locally; automatic HUD reading, the AI Game Master, and Rules Compiler come later.
+A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, an AI Game Master with streamer approval, an OBS overlay, and a local mock audience. Automatic HUD reading and the Rules Compiler come later.
 
 ## Try it without Twitch
 
 No Twitch registration, credentials, tokens, or Twitch CLI are needed. Install dependencies once with `npm install`, then:
 
 ```sh
-npm run mock
+GAMEMASTER=off npm run mock
 ```
 
-The mock server binds **127.0.0.1 only**, using `PORT` (default `3000`) and `BROADCASTER_LOGIN` (default `streamer`). All other config is ignored. Replies appear in the terminal prefixed with `[chat]`. Mock logins are normalized to lowercase, with `userId = login`.
+The mock server binds **127.0.0.1 only**, using `PORT` (default `3000`) and `BROADCASTER_LOGIN` (default `streamer`). Twitch config is ignored; `GAME` and `GAMEMASTER` still apply. Set `GAMEMASTER=off` for fully offline sample dares. Replies appear in the terminal prefixed with `[chat]`. Mock logins are normalized to lowercase, with `userId = login`.
 
-In another terminal, open a dare as the streamer, then invite the simulated crowd:
+In another terminal, request a dare as the streamer, approve the proposal, then invite the simulated crowd:
 
 ```sh
 curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
   -d '{"user":"streamer","text":"!dare"}'
+# Wait for the proposal, then approve it:
+curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
+  -d '{"user":"streamer","text":"!approve"}'
 npm run crowd -- 20
 ```
 
@@ -36,18 +39,28 @@ curl -s http://127.0.0.1:3000/mock/chat -H 'Content-Type: application/json' \
   -d '{"user":"streamer","text":"!overrule HUD reading was wrong"}'
 ```
 
-If you configured a different broadcaster login or port, substitute it in the curl commands. Another `!dare` opens the next sample: a 60-second vote, then 10 minutes for 15 kills. Samples alternate, with the next sample index recovered from the Ledger.
+If you configured a different broadcaster login or port, substitute it in the curl commands. Another `!dare` proposes the next sample: a 30-second vote, then 7:30 for 15 kills after approval. Samples alternate (including rerolls), with the next sample index recovered from the Ledger.
 
 | Command | Who | When |
 | --- | --- | --- |
 | `!ping`, `!race` | Anyone | Always |
-| `!pick 1` through `!pick 3` | Anyone | Voting; one current vote per user |
+| `!pick N`, bare `1`–`4`, or a unique option first word (e.g. `shotgun`) | Anyone | Voting; one current vote per user; later votes replace earlier ones |
 | `!yes`, `!no` | Anyone | Voting or running; replaces that user's prediction |
-| `!dare` | Broadcaster | No dare yet, or previous dare resolved |
+| `!dare` | Broadcaster | Generate a proposal when idle/resolved; duplicates while thinking are ignored |
+| `!approve` | Broadcaster | Approve the pending proposal and start voting |
+| `!reroll` | Broadcaster | Replace the pending proposal; unavailable while thinking |
 | `!kill` | Broadcaster | Running; adds one kill |
 | `!overrule <reason>` | Broadcaster | Resolved; flips the result |
 
 Broadcaster permission compares the login case-insensitively in both modes. Mock mode deliberately trusts the submitted login so a demo can act as the streamer. HTTP 200 means input was accepted; commands without permission or in the wrong phase are silently ignored. Invalid users and text longer than 500 characters return HTTP 400.
+
+## AI Game Master and approval
+
+With `GAMEMASTER=on` (default), install and authenticate the Codex CLI so `codex` is on PATH. `GAME` defaults to `Fortnite`. Both live and mock modes use the same generator. Only the broadcaster can approve or reroll.
+
+`!dare` replies “Game Master is thinking…” and runs `codex exec` with `gpt-6-luna`, low reasoning effort, a read-only sandbox, ephemeral execution, and a JSON schema. Generation runs outside the command queue. The prompt contains only the configured game, solo mode, recent dare titles, and fixed safety/size limits—never viewer messages or overrule reasons. Output is strictly validated, and temporary output files are removed. A 25-second timeout, failed process, or invalid output uses the next sample marked as a fallback. `GAMEMASTER=off` always uses samples without starting Codex.
+
+Review the proposed title, options, and stakes in chat or the overlay. `!approve` starts a **30-second vote**; `!reroll` requests a replacement. Proposals expire after **120 seconds**, including across restarts. Voting and predictions start only after approval. The running deadline is **target × 30 seconds**, clamped to 90–600 seconds; the model cannot set timings. Stakes are descriptive and manually honored by the streamer.
 
 ## OBS overlay
 
@@ -67,7 +80,7 @@ The single HTML file uses the reference's Barlow Condensed, Inter, and JetBrains
 
 `.data/ledger.jsonl` stores `{ seq, at, agent, type, data }` records. State is derived only by pure `replay`: current dare and tallies, one-based winning option, progress, per-user fan scores, and the last 20 events. Ties (including no votes) select the lowest option number. A correct final prediction earns +1 per dare; overrules recalculate that score without double-crediting.
 
-The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes only from the streamer's manual `!kill` for now.
+The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes only from the streamer's manual `!kill` for now.
 
 Both modes share `.data/ledger.jsonl`. Run only one process at a time. To reset a demo, stop it and move that file aside as a backup before restarting. The writer does not silently discard corrupt or partial records; an incomplete final line needs repair before restart. Bot messages are best-effort and are not replayed as a delivery queue.
 
@@ -102,7 +115,7 @@ Both modes share `.data/ledger.jsonl`. Run only one process at a time. To reset 
    npm run dev
    ```
 
-   Wait for `Subscribed to channel.chat.message.` and `EventSub connected.`. Type `!ping` in the broadcaster's Twitch chat using an account other than the bot. It replies `pong`. `!race` replies `Race Control is online.` Unknown commands are ignored. Commands are exact and case-sensitive, with surrounding whitespace ignored.
+   Wait for `Subscribed to channel.chat.message.` and `EventSub connected.`. Type `!ping` in the broadcaster's Twitch chat using an account other than the bot. It replies `pong`. `!race` replies `Race Control is online.` Unknown commands are ignored. Commands are exact and case-sensitive, with surrounding whitespace ignored; option-word votes are case-insensitive.
 
 `npm start` runs once without watching files; both start scripts use `tsx`, so install development dependencies too. Press Ctrl+C to stop. `PORT` is used by the OAuth helper and, in mock mode, the local chat endpoint; the overlay is served in both modes. If changing the port, update both the redirect URI in `.env` and the Twitch app registration.
 

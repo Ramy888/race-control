@@ -1,5 +1,9 @@
 export interface Config {
   mock?: boolean;
+  game?: string;
+  gamemaster?: boolean;
+  voteMs?: number;
+  killMs?: number;
   clientId: string;
   clientSecret: string;
   redirectUri: string;
@@ -9,12 +13,13 @@ export interface Config {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
+  const master = { game: env.GAME?.trim() || 'Fortnite', gamemaster: env.GAMEMASTER !== 'off', voteMs: 30_000, killMs: 30_000 };
   if (env.MOCK === '1') {
     const port = Number(env.PORT?.trim() || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535.');
     const broadcasterLogin = env.BROADCASTER_LOGIN?.trim().toLowerCase() || 'streamer';
     if (!/^[a-z0-9_]{1,25}$/.test(broadcasterLogin)) throw new Error('BROADCASTER_LOGIN must be a Twitch login (1–25 letters, digits or underscores).');
-    return { mock: true, port, broadcasterLogin, botLogin: '', clientId: '', clientSecret: '', redirectUri: '' };
+    return { ...master, mock: true, port, broadcasterLogin, botLogin: '', clientId: '', clientSecret: '', redirectUri: '' };
   }
   const required = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'TWITCH_REDIRECT_URI',
     'BROADCASTER_LOGIN', 'BOT_LOGIN', 'PORT'] as const;
@@ -36,7 +41,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     if (!/^[a-zA-Z0-9_]+$/.test(env[key]!)) throw new Error(`${key} must be a Twitch login (no @ or URL).`);
   }
   return {
-    clientId: env.TWITCH_CLIENT_ID!.trim(), clientSecret: env.TWITCH_CLIENT_SECRET!.trim(),
+    ...master, clientId: env.TWITCH_CLIENT_ID!.trim(), clientSecret: env.TWITCH_CLIENT_SECRET!.trim(),
     redirectUri: redirect.href, broadcasterLogin: env.BROADCASTER_LOGIN!.toLowerCase(),
     botLogin: env.BOT_LOGIN!.toLowerCase(), port,
   };

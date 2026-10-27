@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "options", "target", "stakes"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1, "maxLength": 45 },
+    "options": { "type": "array", "minItems": 2, "maxItems": 4, "items": { "type": "string", "minLength": 1, "maxLength": 24 } },
+    "target": {
+      "type": "object", "additionalProperties": false, "required": ["stat", "count"],
+      "properties": { "stat": { "type": "string", "enum": ["kills"] }, "count": { "type": "integer", "minimum": 3, "maximum": 15 } }
+    },
+    "stakes": { "type": "string", "minLength": 1, "maxLength": 80 }
+  }
+}

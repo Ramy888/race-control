@@ -16,7 +16,7 @@ try {
   const config = loadConfig(process.env);
   const ledger = await Ledger.open();
   if (config.mock) {
-    const loop = new DareLoop(ledger, config.broadcasterLogin, async message => { console.log(`[chat] ${message}`); });
+    const loop = new DareLoop(ledger, config.broadcasterLogin, async message => { console.log(`[chat] ${message}`); }, undefined, undefined, undefined, config);
     cleanup.push(() => loop.stop());
     await loop.start();
     const local = await startLocalServer(config.port, ledger, chat => loop.handle(chat));
@@ -27,7 +27,7 @@ try {
     const { broadcaster, bot } = await tokens.validateAll();
     const queue = new RateLimitQueue();
     const api = new TwitchApi(config.clientId, broadcaster.userId!, bot.userId!, tokens, queue);
-    const loop = new DareLoop(ledger, config.broadcasterLogin, message => api.send(message));
+    const loop = new DareLoop(ledger, config.broadcasterLogin, message => api.send(message), undefined, undefined, undefined, config);
     cleanup.push(() => { loop.stop(); queue.stop(); });
     await loop.start();
     const local = await startLocalServer(config.port, ledger);

@@ -1,8 +1,13 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import type { DareContent } from './gamemaster.js';
+
+export interface Proposal extends DareContent { proposalId: string; expiresAt: string }
 
 export interface DareSpec {
   dareId: string;
+  stakes?: string;
+  source?: DareContent['source'];
   title: string;
   options: string[];
   target: { stat: 'kills'; count: number };
@@ -10,6 +15,8 @@ export interface DareSpec {
   dareEndsAt: string;
 }
 type Payloads = {
+  dare_proposed: DareContent & { proposalId: string };
+  proposal_expired: { proposalId: string };
   dare_opened: DareSpec;
   vote_cast: { dareId: string; userId: string; login: string; option: number };
   prediction_cast: { dareId: string; userId: string; login: string; yes: boolean };
@@ -19,10 +26,11 @@ type Payloads = {
   overruled: { dareId: string; success: boolean; reason: string };
 };
 export const agents = {
-  dare_opened: 'GameMaster', vote_cast: 'Chat', prediction_cast: 'Chat',
+  dare_proposed: 'GameMaster', proposal_expired: 'Referee',
+  dare_opened: 'Commissioner', vote_cast: 'Chat', prediction_cast: 'Chat',
   vote_locked: 'Referee', progress: 'Referee', dare_resolved: 'Referee', overruled: 'Commissioner',
 } as const;
-export type EventInput = { [K in keyof Payloads]: { type: K; agent: typeof agents[K]; data: Payloads[K] } }[keyof Payloads];
+export type EventInput = { [K in keyof Payloads]: { type: K; agent: K extends 'dare_opened' ? 'Commissioner' | 'GameMaster' : typeof agents[K]; data: Payloads[K] } }[keyof Payloads];
 export type LedgerEvent = EventInput & { seq: number; at: string };
 export interface DareState extends Omit<DareSpec, 'options'> {
   options: { title: string; tally: number }[];
@@ -36,6 +44,9 @@ export interface DareState extends Omit<DareSpec, 'options'> {
 }
 export interface RaceState {
   currentDare?: DareState;
+  proposal?: Proposal;
+  proposalCount: number;
+  recentTitles: string[];
   fanScores: Record<string, { login: string; score: number }>;
   lastEvents: LedgerEvent[];
   dareCount: number;
@@ -48,14 +59,30 @@ export function voteWinner(options: DareState['options']): number {
 }
 
 export function replay(events: readonly LedgerEvent[]): RaceState {
-  const state: RaceState = { fanScores: Object.create(null), lastEvents: structuredClone(events.slice(-20)), dareCount: 0, chatEventCount: 0, agentStrip: [] };
+  const state: RaceState = { fanScores: Object.create(null), lastEvents: structuredClone(events.slice(-20)), dareCount: 0, proposalCount: 0, recentTitles: [], chatEventCount: 0, agentStrip: [] };
   const activity = (agent: string, text: string) => {
     state.agentStrip.push({ agent, text });
     state.agentStrip = state.agentStrip.slice(-5);
   };
   const dares = new Map<string, DareState>();
   for (const event of events) {
-    if (event.agent !== agents[event.type]) continue;
+    if (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster')) continue;
+    if (event.type === 'dare_proposed') {
+      if (state.currentDare && state.currentDare.status !== 'resolved') continue;
+      if (state.proposal) activity('Commissioner', 'Rerolled');
+      state.proposal = { ...structuredClone(event.data), expiresAt: new Date(Date.parse(event.at) + 120_000).toISOString() };
+      state.proposalCount++;
+      activity(event.agent, `Proposed: ${event.data.title}`);
+      if (event.data.source === 'fallback') activity(event.agent, 'Fallback dare (AI unavailable)');
+      continue;
+    }
+    if (event.type === 'proposal_expired') {
+      if (state.proposal?.proposalId === event.data.proposalId && Date.parse(event.at) >= Date.parse(state.proposal.expiresAt)) {
+        delete state.proposal;
+        activity(event.agent, 'Proposal expired');
+      }
+      continue;
+    }
     if (event.agent === 'Chat') state.chatEventCount++;
     if (event.type === 'dare_opened') {
       const spec = event.data;
@@ -68,7 +95,9 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
       dares.set(spec.dareId, dare);
       state.currentDare = dare;
       state.dareCount++;
-      activity(event.agent, `Opened: ${dare.title}`);
+      delete state.proposal;
+      state.recentTitles = [...state.recentTitles, dare.title].slice(-5);
+      activity(event.agent, event.agent === 'Commissioner' ? 'Approved by streamer' : `Opened: ${dare.title}`);
       continue;
     }
     const dare = dares.get(event.data.dareId);
@@ -149,7 +178,8 @@ export class Ledger {
     ledger.events = content.split('\n').filter(Boolean).map((line, index) => {
       const event = JSON.parse(line) as LedgerEvent;
       if (event.seq !== index + 1 || !Number.isFinite(Date.parse(event.at)) ||
-          !Object.hasOwn(agents, event.type) || event.agent !== agents[event.type] || !event.data?.dareId) {
+          !Object.hasOwn(agents, event.type) || (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster')) ||
+          !event.data || !('dareId' in event.data ? event.data.dareId : event.data.proposalId)) {
         throw new Error(`Invalid Ledger event at line ${index + 1}.`);
       }
       return event;

@@ -51,7 +51,9 @@ footer{position:absolute;bottom:0;left:0;right:0;height:126px;padding:15px 36px;
 <div class="row"><span class="eyebrow accent">AI DARE · CHAT LOADOUT</span><span id="phase" class="mono">IDLE</span></div>
 <h1 id="title" class="heading" hidden></h1>
 <div id="idle"><div class="heading waiting">Waiting for the Game Master…</div><p class="muted">streamer types !dare</p></div>
-<div id="voting" hidden><div id="options"></div><div class="muted">Choose your loadout: !pick N</div></div>
+<p id="stakes" class="muted" hidden></p>
+<div id="proposed" hidden><div class="eyebrow accent">Game Master proposes…</div><p id="proposal-options" class="muted"></p><p class="muted">Waiting for streamer: !approve / !reroll</p></div>
+<div id="voting" hidden><div id="options"></div><div class="muted">Vote: number, option word, or !pick N</div></div>
 <div id="running" hidden><div id="winner"></div><div class="row"><span class="muted">Kills this dare</span><span id="progress" class="heading"></span></div><div class="track"><div id="progress-bar" class="fill"></div></div></div>
 <div id="resolved" hidden><div id="result" class="heading"></div><div id="final-score" class="muted"></div><span id="overruled" class="mono" hidden>OVERRULED</span></div>
 <div id="clock" class="clock row" hidden><span id="clock-label" class="muted"></span><span id="countdown" class="mono"></span></div>
@@ -83,12 +85,15 @@ function scale() { $('stage').style.transform = `scale(${Math.min(innerWidth / 1
 addEventListener('resize', scale); scale();
 function render(view) {
   const dare = view.dare;
+  show('stakes', !!dare?.stakes);
   show('idle', !dare); show('title', !!dare);
-  for (const phase of ['voting', 'running', 'resolved']) show(phase, dare?.status === phase);
+  for (const phase of ['proposed', 'voting', 'running', 'resolved']) show(phase, dare?.status === phase);
   text('phase', dare ? dare.status.toUpperCase() : 'IDLE');
   show('clock', !!dare && dare.status !== 'resolved');
   if (dare) {
     text('title', dare.title);
+    show('stakes', !!dare.stakes); text('stakes', dare.stakes ? `Stakes: ${dare.stakes}` : '');
+    if (dare.status === 'proposed') text('proposal-options', dare.options.map((option, i) => `${i + 1}. ${option.title}`).join(' · '));
     if (dare.status === 'voting') {
       const options = dare.options.map((option, i) => {
         const node = element('div', 'option');
@@ -112,7 +117,7 @@ function render(view) {
     } else {
       const voting = dare.status === 'voting';
       const seconds = Math.max(0, Math.ceil((Date.parse(voting ? dare.voteEndsAt : dare.dareEndsAt) - view.serverNow) / 1000));
-      text('clock-label', voting ? 'Vote closes in' : 'Time remaining');
+      text('clock-label', dare.status === 'proposed' ? 'Proposal expires in' : voting ? 'Vote closes in' : 'Time remaining');
       text('countdown', `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
     }
   }

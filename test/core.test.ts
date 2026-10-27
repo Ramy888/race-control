@@ -92,3 +92,14 @@ test('HTTP helpers sanitize failures and reject malformed JSON', async () => {
   }, 'https://example.invalid');
   assert.deepEqual(await readJson(response), {});
 });
+
+
+test('Game Master config defaults and offline switch work in both modes', () => {
+  for (const base of [env, { MOCK: '1' }]) {
+    assert.equal(loadConfig(base).game, 'Fortnite');
+    assert.equal(loadConfig(base).gamemaster, true);
+    const config = loadConfig({ ...base, GAME: ' Apex Legends ', GAMEMASTER: 'off' });
+    assert.equal(config.game, 'Apex Legends'); assert.equal(config.gamemaster, false);
+    assert.equal(config.voteMs, 30_000); assert.equal(config.killMs, 30_000);
+  }
+});
