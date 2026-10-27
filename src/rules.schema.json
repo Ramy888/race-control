@@ -1,0 +1,79 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "examples"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "examples": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ctx",
+          "expected"
+        ],
+        "properties": {
+          "ctx": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "correct",
+              "yes",
+              "success",
+              "overruled",
+              "yesCount",
+              "noCount",
+              "target",
+              "progress"
+            ],
+            "properties": {
+              "correct": {
+                "type": "boolean"
+              },
+              "yes": {
+                "type": "boolean"
+              },
+              "success": {
+                "type": "boolean"
+              },
+              "overruled": {
+                "type": "boolean"
+              },
+              "yesCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "noCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "target": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "progress": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "expected": {
+            "type": "integer",
+            "minimum": -10,
+            "maximum": 10
+          }
+        }
+      }
+    }
+  }
+}

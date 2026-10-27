@@ -12,18 +12,25 @@ export function routeCommand(event: ChatMessage, botId: string): string | undefi
 export interface ChatInput { userId: string; login: string; text: string }
 export type Command =
   | { type: 'reply'; text: string }
-  | { type: 'dare' | 'kill' | 'approve' | 'reroll' }
+  | { type: 'dare' | 'kill' | 'approve' | 'reroll' | 'adopt' | 'reject' | 'ruleReset' | 'ruleShow' }
+  | { type: 'rule'; text: string }
   | { type: 'pick'; option: number }
   | { type: 'predict'; yes: boolean }
   | { type: 'overrule'; reason: string };
 
 export function parseCommand(text: string, options: readonly string[] = []): Command | undefined {
   const trimmed = text.trim();
+  const rule = /^!rule\s+([\s\S]+)$/.exec(trimmed)?.[1]?.trim();
+  if (rule === 'reset') return { type: 'ruleReset' };
+  if (rule !== undefined) return rule.length >= 3 && rule.length <= 200 ? { type: 'rule', text: rule } : undefined;
   // Chatters often end commands with "." or "!" ("!approve.").
   const value = trimmed.startsWith('!') ? trimmed.replace(/[.!]+$/, '') : trimmed;
   switch (value) {
     case '!ping': return { type: 'reply', text: 'pong' };
     case '!race': return { type: 'reply', text: 'Race Control is online.' };
+    case '!rule': return { type: 'ruleShow' };
+    case '!adopt': return { type: 'adopt' };
+    case '!reject': return { type: 'reject' };
     case '!dare': return { type: 'dare' };
     case '!approve': return { type: 'approve' };
     case '!reroll': return { type: 'reroll' };

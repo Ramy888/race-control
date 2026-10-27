@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { evaluate, type RuleSpec, type PendingRule, type Audit, type RuleContext, type FanScores } from './rules.js';
 import type { DareContent } from './gamemaster.js';
 
 export interface Proposal extends DareContent { proposalId: string; expiresAt: string }
@@ -15,6 +16,12 @@ export interface DareSpec {
   dareEndsAt: string;
 }
 type Payloads = {
+  rule_proposed: RuleSpec;
+  rule_audited: Audit & { ruleId: string };
+  rule_adopted: { ruleId: string };
+  rule_rejected: { ruleId: string };
+  rule_expired: { ruleId: string };
+  rule_failed: { ruleId: string; text: string; reason: string };
   dare_proposed: DareContent & { proposalId: string };
   proposal_expired: { proposalId: string };
   dare_opened: DareSpec;
@@ -26,6 +33,8 @@ type Payloads = {
   overruled: { dareId: string; success: boolean; reason: string };
 };
 export const agents = {
+  rule_proposed: 'RulesCompiler', rule_audited: 'Auditor', rule_adopted: 'Commissioner',
+  rule_rejected: 'Commissioner', rule_failed: 'RulesCompiler', rule_expired: 'Referee',
   dare_proposed: 'GameMaster', proposal_expired: 'Referee',
   dare_opened: 'Commissioner', vote_cast: 'Chat', prediction_cast: 'Chat',
   vote_locked: 'Referee', progress: 'Referee', dare_resolved: 'Referee', overruled: 'Commissioner',
@@ -43,6 +52,11 @@ export interface DareState extends Omit<DareSpec, 'options'> {
   overruled?: boolean;
 }
 export interface RaceState {
+  activeRule?: RuleSpec;
+  pendingRule?: PendingRule;
+  ruleContexts: RuleContext[];
+  ruleErrors: string[];
+  previewScores?: FanScores;
   currentDare?: DareState;
   proposal?: Proposal;
   proposalCount: number;
@@ -59,7 +73,7 @@ export function voteWinner(options: DareState['options']): number {
 }
 
 export function replay(events: readonly LedgerEvent[]): RaceState {
-  const state: RaceState = { fanScores: Object.create(null), lastEvents: structuredClone(events.slice(-20)), dareCount: 0, proposalCount: 0, recentTitles: [], chatEventCount: 0, agentStrip: [] };
+  const state: RaceState = { ruleContexts: [], ruleErrors: [], fanScores: Object.create(null), lastEvents: structuredClone(events.slice(-20)), dareCount: 0, proposalCount: 0, recentTitles: [], chatEventCount: 0, agentStrip: [] };
   const activity = (agent: string, text: string) => {
     state.agentStrip.push({ agent, text });
     state.agentStrip = state.agentStrip.slice(-5);
@@ -67,6 +81,44 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
   const dares = new Map<string, DareState>();
   for (const event of events) {
     if (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster')) continue;
+    switch (event.type) {
+      case 'rule_proposed':
+        if (!state.pendingRule) {
+          state.pendingRule = { ...structuredClone(event.data), expiresAt: new Date(Date.parse(event.at) + 120_000).toISOString() };
+          activity(event.agent, `Rule written: ${event.data.text}`);
+        }
+        continue;
+      case 'rule_audited':
+        if (state.pendingRule?.ruleId === event.data.ruleId) {
+          state.pendingRule.audit = structuredClone(event.data);
+          activity(event.agent, event.data.mismatches ? `Audit failed ${event.data.mismatches}/${event.data.cases}` : `Audit passed ${event.data.cases}/${event.data.cases}`);
+          if (event.data.mismatches) delete state.pendingRule;
+        }
+        continue;
+      case 'rule_adopted':
+        if (event.data.ruleId === 'default') {
+          delete state.activeRule; delete state.pendingRule;
+          activity(event.agent, 'Rule adopted');
+        } else if (state.pendingRule?.ruleId === event.data.ruleId && state.pendingRule.audit?.mismatches === 0 &&
+            state.pendingRule.audit.cases > 0 && Date.parse(event.at) < Date.parse(state.pendingRule.expiresAt)) {
+          const { expiresAt: _, audit: __, ...rule } = state.pendingRule;
+          state.activeRule = rule;
+          delete state.pendingRule;
+          activity(event.agent, 'Rule adopted');
+        }
+        continue;
+      case 'rule_rejected':
+      case 'rule_expired':
+        if (state.pendingRule?.ruleId === event.data.ruleId && (event.type === 'rule_rejected' || Date.parse(event.at) >= Date.parse(state.pendingRule.expiresAt))) {
+          delete state.pendingRule;
+          activity(event.agent, event.type === 'rule_rejected' ? 'Rule rejected' : 'Rule expired');
+        }
+        continue;
+      case 'rule_failed':
+        if (state.pendingRule?.ruleId === event.data.ruleId) delete state.pendingRule;
+        activity(event.agent, `Rule failed: ${event.data.reason}`);
+        continue;
+    }
     if (event.type === 'dare_proposed') {
       if (state.currentDare && state.currentDare.status !== 'resolved') continue;
       if (state.proposal) activity('Commissioner', 'Rerolled');
@@ -148,12 +200,29 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
         break;
     }
   }
-  // Recompute across all dares, so corrections never double-credit predictions.
+  // Recompute across all dares under the final adopted rule, including overrules.
+  if (state.pendingRule?.audit?.mismatches === 0) state.previewScores = Object.create(null) as FanScores;
+  const score = (rule: RuleSpec | undefined, ctx: RuleContext) => {
+    if (!rule) return ctx.correct ? 1 : 0;
+    const result = evaluate(rule.ruleId, rule.code, ctx);
+    if (!result.valid && !state.ruleErrors.includes(rule.ruleId)) state.ruleErrors.push(rule.ruleId);
+    return result.points;
+  };
   for (const dare of dares.values()) {
+    const predictions = Object.values(dare.predictions);
+    const yesCount = predictions.filter(prediction => prediction.yes).length;
     for (const [userId, prediction] of Object.entries(dare.predictions)) {
       const fan = state.fanScores[userId] ??= { login: prediction.login, score: 0 };
       fan.login = prediction.login;
-      if (dare.status === 'resolved' && prediction.yes === dare.success) fan.score++;
+      const preview = state.previewScores && (state.previewScores[userId] ??= { login: prediction.login, score: 0 });
+      if (preview) preview.login = prediction.login;
+      if (dare.status !== 'resolved') continue;
+      const ctx: RuleContext = { correct: prediction.yes === dare.success, yes: prediction.yes, success: !!dare.success,
+        overruled: !!dare.overruled, yesCount, noCount: predictions.length - yesCount,
+        target: Math.trunc(dare.target.count), progress: Math.trunc(dare.progress) };
+      state.ruleContexts.push(ctx);
+      fan.score += score(state.activeRule, ctx);
+      if (preview) preview.score += score(state.pendingRule, ctx);
     }
   }
   return state;
@@ -161,6 +230,7 @@ export function replay(events: readonly LedgerEvent[]): RaceState {
 
 export class Ledger {
   private events: LedgerEvent[] = [];
+  private readonly loggedRules = new Set<string>();
   private readonly listeners = new Set<() => void>();
   private pending: Promise<unknown> = Promise.resolve();
   private constructor(private readonly path: string) {}
@@ -179,7 +249,7 @@ export class Ledger {
       const event = JSON.parse(line) as LedgerEvent;
       if (event.seq !== index + 1 || !Number.isFinite(Date.parse(event.at)) ||
           !Object.hasOwn(agents, event.type) || (event.agent !== agents[event.type] && !(event.type === 'dare_opened' && event.agent === 'GameMaster')) ||
-          !event.data || !('dareId' in event.data ? event.data.dareId : event.data.proposalId)) {
+          !event.data || !('dareId' in event.data ? event.data.dareId : 'proposalId' in event.data ? event.data.proposalId : event.data.ruleId)) {
         throw new Error(`Invalid Ledger event at line ${index + 1}.`);
       }
       return event;
@@ -187,7 +257,14 @@ export class Ledger {
     return ledger;
   }
 
-  get state(): RaceState { return replay(this.events); }
+  get state(): RaceState {
+    const state = replay(this.events);
+    for (const ruleId of state.ruleErrors) if (!this.loggedRules.has(ruleId)) {
+      this.loggedRules.add(ruleId);
+      console.error('Scoring rule returned invalid points; scored 0.');
+    }
+    return state;
+  }
 
   onAppend(listener: () => void): () => void {
     this.listeners.add(listener);

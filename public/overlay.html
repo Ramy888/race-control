@@ -13,7 +13,7 @@
 .eyebrow{font-family:'JetBrains Mono',monospace;font-size:17px;letter-spacing:1.5px;color:var(--muted)}
 .heading{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:700;text-transform:uppercase}
 .badge{position:absolute;left:36px;top:36px;padding:9px 18px;background:var(--yellow);color:var(--ink);font-size:27px;letter-spacing:1.5px}
-.fans{position:absolute;left:36px;top:108px;width:402px;padding:18px 21px}.fans .eyebrow{font-size:16px;margin:0 0 18px}
+.left{position:absolute;left:36px;top:108px;width:402px;display:flex;flex-direction:column;gap:18px}.fans{padding:18px 21px}.fans .eyebrow{font-size:16px;margin:0 0 18px}
 .fan{display:flex;align-items:center;gap:12px;margin:13px 0;font-size:21px}.rank{color:var(--muted);width:20px}.login{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .score{font-size:18px;color:var(--yellow)}.muted{color:var(--muted);font-size:18px;line-height:1.5}
 .right{position:absolute;right:36px;top:36px;width:558px;display:flex;flex-direction:column;gap:24px}
@@ -36,16 +36,25 @@ footer{position:absolute;bottom:0;left:0;right:0;height:126px;padding:15px 36px;
 .agent-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:6px}.agent-text{font-size:16px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .agent.latest{background:var(--yellow);border-color:var(--yellow);color:var(--ink)}.latest .agent-name{color:#493800}.footer-right{width:175px;flex-shrink:0;text-align:right;font-size:17px;color:var(--muted)}
 #connection{display:block;font-size:12px;color:var(--orange);margin-top:8px}[hidden]{display:none!important}
+.rule-panel{padding:18px 21px;overflow-wrap:anywhere}.rule-panel p{font-size:17px;line-height:1.4;margin:12px 0}.rule-preview{display:grid;grid-template-columns:1fr 1fr;gap:12px}.rule-preview div{min-width:0}.rule-fan{font-size:15px;line-height:1.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#house-rule{font-size:17px;line-height:1.5;color:var(--yellow)}
 @media(prefers-reduced-motion:reduce){.fill{transition:none}}
 </style>
 </head>
 <body>
 <main id="stage">
 <div class="badge heading">STREAMER vs CHAT</div>
+<div class="left">
 <section class="fans panel" aria-label="Top fans">
 <h2 class="eyebrow">TOP FANS THIS STREAM</h2>
 <div id="fans"><p class="muted">Your first prediction starts here.</p></div>
 </section>
+<section id="house-rule" class="rule-panel panel" hidden></section>
+<section id="rule-card" class="rule-panel panel" hidden aria-label="Proposed scoring rule">
+<div class="eyebrow accent">RULE · REPLAY PREVIEW</div><p id="rule-text"></p><p id="rule-audit" class="mono accent"></p>
+<div class="rule-preview"><div><div class="eyebrow">BEFORE →</div><div id="rule-before"></div></div><div><div class="eyebrow">AFTER</div><div id="rule-after"></div></div></div>
+<p class="muted">Streamer: !adopt / !reject</p><div id="rule-expiry" class="muted"></div>
+</section>
+</div>
 <div class="right">
 <section class="dare panel" aria-label="Current dare">
 <div class="row"><span class="eyebrow accent">AI DARE · CHAT LOADOUT</span><span id="phase" class="mono">IDLE</span></div>
@@ -84,6 +93,15 @@ function element(tag, className, value) {
 function scale() { $('stage').style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; }
 addEventListener('resize', scale); scale();
 function render(view) {
+  show('house-rule', !!view.houseRule); text('house-rule', view.houseRule ? `HOUSE RULE: ${view.houseRule}` : '');
+  const rule = view.pendingRule;
+  show('rule-card', !!rule);
+  if (rule) {
+    text('rule-text', rule.text);
+    text('rule-audit', rule.audit ? (rule.audit.mismatches ? 'Auditor ✗' : `Auditor ✓ ${rule.audit.cases}/${rule.audit.cases}`) : 'Auditor checking…');
+    for (const side of ['before', 'after']) $('rule-' + side).replaceChildren(...rule[side].map((fan, i) => element('div', 'rule-fan', `${i + 1}. ${fan.login} · ${fan.score} pts`)));
+    text('rule-expiry', `Expires in ${Math.max(0, Math.ceil((Date.parse(rule.expiresAt) - view.serverNow) / 1000))}s`);
+  }
   const dare = view.dare;
   show('stakes', !!dare?.stakes);
   show('idle', !dare); show('title', !!dare);
@@ -125,10 +143,10 @@ function render(view) {
     text(side, `${side.toUpperCase()} ${view.predictions[side].percent}%`);
     $(side + '-bar').style.width = `${view.predictions[side].percent}%`;
   }
-  text('prediction-note', `${view.predictions.yes.count} yes · ${view.predictions.no.count} no · Correct predictions earn +1.`);
+  text('prediction-note', `${view.predictions.yes.count} yes · ${view.predictions.no.count} no · ${view.houseRule ? 'House rule applies.' : 'Correct predictions earn +1.'}`);
   const fans = view.topFans.map((fan, index) => {
     const row = element('div', 'fan');
-    row.append(element('span', 'rank mono', String(index + 1)), element('span', 'login', fan.login), element('span', 'score mono', `${fan.score} right`));
+    row.append(element('span', 'rank mono', String(index + 1)), element('span', 'login', fan.login), element('span', 'score mono', `${fan.score} pts`));
     return row;
   });
   $('fans').replaceChildren(...(fans.length ? fans : [element('p', 'muted', 'Your first prediction starts here.')]));

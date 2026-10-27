@@ -1,3 +1,4 @@
+import { compileRule, auditRule, rankChanges } from './rules.js';
 import { randomUUID } from 'node:crypto';
 import { parseCommand, type ChatInput } from './commands.js';
 import { voteWinner, type EventInput, type RaceState } from './ledger.js';
@@ -23,6 +24,7 @@ export class DareLoop {
   private cancel?: () => void;
   private stopped = false;
   private generating = false;
+  private compiling?: string;
   constructor(
     private readonly ledger: DareLedger,
     private readonly broadcasterLogin: string,
@@ -31,6 +33,7 @@ export class DareLoop {
     private readonly log: (message: string) => void = console.error,
     private readonly master: (context: MasterContext) => Promise<DareContent> = generateDare,
     private readonly settings: Pick<Config, 'game' | 'gamemaster' | 'voteMs' | 'killMs'> = {},
+    private readonly compiler: typeof compileRule = compileRule,
   ) {}
 
   start(): Promise<void> { return this.run(async () => {}); }
@@ -54,14 +57,22 @@ export class DareLoop {
   }
   private arm(): void {
     this.cancel?.();
-    const { currentDare: dare, proposal } = this.ledger.state;
-    if (this.stopped || (!proposal && (!dare || dare.status === 'resolved'))) return;
-    const deadline = proposal?.expiresAt ?? (dare!.status === 'voting' ? dare!.voteEndsAt : dare!.dareEndsAt);
+    const { currentDare: dare, proposal, pendingRule } = this.ledger.state;
+    const deadlines = [proposal?.expiresAt, pendingRule?.expiresAt,
+      dare && dare.status !== 'resolved' ? (dare.status === 'voting' ? dare.voteEndsAt : dare.dareEndsAt) : undefined]
+      .filter((value): value is string => !!value).map(Date.parse);
+    if (this.stopped || !deadlines.length) return;
+    const deadline = Math.min(...deadlines);
     this.cancel = this.time.schedule(() => {
       void this.start().catch(() => { this.stop(); this.log('Dare timer failed. Check the Ledger and restart.'); });
-    }, Math.max(0, Date.parse(deadline) - this.time.now()));
+    }, Math.max(0, deadline - this.time.now()));
   }
   private async advance(): Promise<void> {
+    const rule = this.ledger.state.pendingRule;
+    if (rule && this.time.now() >= Date.parse(rule.expiresAt)) {
+      await this.append({ agent: 'Referee', type: 'rule_expired', data: { ruleId: rule.ruleId } });
+      this.say('Rule expired. !rule to try again.');
+    }
     const proposal = this.ledger.state.proposal;
     if (proposal && this.time.now() >= Date.parse(proposal.expiresAt)) {
       await this.append({ agent: 'Referee', type: 'proposal_expired', data: { proposalId: proposal.proposalId } });
@@ -80,7 +91,7 @@ export class DareLoop {
     if (dare.status === 'running' && (dare.progress >= dare.target.count || this.time.now() >= Date.parse(dare.dareEndsAt))) {
       const success = dare.progress >= dare.target.count;
       await this.append({ agent: 'Referee', type: 'dare_resolved', data: { dareId: dare.dareId, success } });
-      this.say(`Dare ${success ? 'won' : 'lost'}: ${dare.progress}/${dare.target.count} kills. Correct predictions earn +1.`);
+      this.say(`Dare ${success ? 'won' : 'lost'}: ${dare.progress}/${dare.target.count} kills. ${this.ledger.state.activeRule ? 'House rule applied.' : 'Correct predictions earn +1.'}`);
     }
   }
 
@@ -93,6 +104,52 @@ export class DareLoop {
       const broadcaster = chat.login.toLowerCase() === this.broadcasterLogin.toLowerCase();
       const state = this.ledger.state;
       const dare = state.currentDare;
+      if (command.type === 'ruleShow') {
+        const text = state.activeRule?.text.replace(/[.!?]+$/, '') ?? 'default (+1 per correct call)';
+        this.say(`House rule: ${text}. !rule <text> to change, !rule reset for default.`);
+        return;
+      }
+      if (command.type === 'ruleReset') {
+        if (!broadcaster) return;
+        this.compiling = undefined; // Invalidate a late compile completion after reset.
+        await this.append({ agent: 'Commissioner', type: 'rule_adopted', data: { ruleId: 'default' } });
+        this.say('Default rule restored. Standings replayed.');
+        return;
+      }
+      if (command.type === 'rule') {
+        if (!broadcaster || this.compiling || state.pendingRule) return;
+        const ruleId = randomUUID();
+        this.compiling = ruleId;
+        this.say('Rules Compiler is writing it…');
+        void this.compiler(command.text).then(async ({ compiler, auditor }) => {
+          if (this.compiling !== ruleId || this.stopped) return;
+          const audit = await auditRule(ruleId, compiler, auditor, this.ledger.state.ruleContexts);
+          await this.run(async () => {
+            if (this.compiling !== ruleId) return;
+            await this.append({ agent: 'RulesCompiler', type: 'rule_proposed', data: { ruleId, text: command.text, ...compiler } });
+            await this.append({ agent: 'Auditor', type: 'rule_audited', data: { ruleId, ...audit } });
+            if (audit.mismatches) this.say(`Auditor disagrees on ${audit.mismatches}/${audit.cases} cases. Rule not adopted. Try rewording.`);
+            else {
+              const ready = this.ledger.state;
+              const changes = rankChanges(ready.fanScores, ready.previewScores ?? ready.fanScores);
+              this.say(`Rule ready: ${command.text}. Auditor matched ${audit.cases}/${audit.cases}. Replay: ${changes.join(', ') || 'ranks unchanged'}. !adopt or !reject`);
+            }
+          });
+        }).catch(error => this.run(async () => {
+          if (this.compiling !== ruleId) return;
+          const reason = ['banned code', 'failed examples', 'invalid output'].includes(error?.message) ? error.message as string : 'compilation failed';
+          await this.append({ agent: 'RulesCompiler', type: 'rule_failed', data: { ruleId, text: command.text, reason } });
+          this.say(`Rule failed: ${reason}. Try rewording.`);
+        })).catch(() => this.log('Rule Ledger write failed.'))
+          .finally(() => { if (this.compiling === ruleId) this.compiling = undefined; });
+        return;
+      }
+      if (command.type === 'adopt' || command.type === 'reject') {
+        if (!broadcaster || !state.pendingRule || (command.type === 'adopt' && state.pendingRule.audit?.mismatches !== 0)) return;
+        await this.append({ agent: 'Commissioner', type: command.type === 'adopt' ? 'rule_adopted' : 'rule_rejected', data: { ruleId: state.pendingRule.ruleId } });
+        this.say(command.type === 'adopt' ? 'Rule adopted. Standings replayed.' : 'Rule rejected.');
+        return;
+      }
       if (command.type === 'dare' || command.type === 'reroll') {
         if (!broadcaster || this.generating || (dare && dare.status !== 'resolved') ||
             (command.type === 'dare' ? !!state.proposal : !state.proposal)) return;

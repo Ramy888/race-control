@@ -1,6 +1,6 @@
 # Race Control
 
-A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, an AI Game Master with streamer approval, an OBS overlay, and a local mock audience. Automatic HUD reading and the Rules Compiler come later.
+A local Twitch chatbot and the starting point for an AI referee/game master for streams. The chatbot now includes an append-only Ledger, an AI Game Master with streamer approval, an OBS overlay, and a local mock audience. A Rules Compiler and independent Auditor let the streamer change scoring live. Automatic HUD reading comes later.
 
 ## Try it without Twitch
 
@@ -51,6 +51,11 @@ If you configured a different broadcaster login or port, substitute it in the cu
 | `!reroll` | Broadcaster | Replace the pending proposal; unavailable while thinking |
 | `!kill` | Broadcaster | Running; adds one kill |
 | `!overrule <reason>` | Broadcaster | Resolved; flips the result |
+| `!rule` | Anyone | Show the current house rule |
+| `!rule <text>` | Broadcaster | Compile a 3–200 character scoring rule; one compile/proposal at a time |
+| `!adopt` | Broadcaster | Adopt a pending rule after a matching audit; replay every resolved dare |
+| `!reject` | Broadcaster | Discard the pending rule |
+| `!rule reset` | Broadcaster | Restore default +1 for correct predictions; no Codex call |
 
 Broadcaster permission compares the login case-insensitively in both modes. Mock mode deliberately trusts the submitted login so a demo can act as the streamer. HTTP 200 means input was accepted; commands without permission or in the wrong phase are silently ignored. Invalid users and text longer than 500 characters return HTTP 400.
 
@@ -61,6 +66,25 @@ With `GAMEMASTER=on` (default), install and authenticate the Codex CLI so `codex
 `!dare` replies “Game Master is thinking…” and runs `codex exec` with `gpt-6-luna`, low reasoning effort, a read-only sandbox, ephemeral execution, and a JSON schema. Generation runs outside the command queue. The prompt contains only the configured game, solo mode, recent dare titles, and fixed safety/size limits—never viewer messages or overrule reasons. Output is strictly validated, and temporary output files are removed. A 25-second timeout, failed process, or invalid output uses the next sample marked as a fallback. `GAMEMASTER=off` always uses samples without starting Codex.
 
 Review the proposed title, options, and stakes in chat or the overlay. `!approve` starts a **30-second vote**; `!reroll` requests a replacement. Proposals expire after **120 seconds**, including across restarts. Voting and predictions start only after approval. The running deadline is **target × 30 seconds**, clamped to 90–600 seconds; the model cannot set timings. Stakes are descriptive and manually honored by the streamer.
+
+## Rules Compiler and Auditor
+
+After some dares have resolved, try either of these in chat as the broadcaster:
+
+```text
+!rule underdogs score double: if fewer people picked your side, correct calls get 2
+!rule wrong calls lose a point
+```
+
+Send one rule at a time. The bot replies “Rules Compiler is writing it…” while chat and dare timers continue. Two independent Codex calls run in parallel: `gpt-6-luna` compiles, and `gpt-6-sol` independently interprets the same rule without seeing the compiler's code. Both use low reasoning effort, a read-only sandbox, schema-constrained output, and a 40-second timeout. Rules require an authenticated Codex CLI in both modes; `GAMEMASTER=off` disables AI dares only.
+
+The Auditor checks both sets of model-derived examples, every resolved prediction context in the Ledger, and a deduplicated grid of 2,304 synthetic contexts. A disagreement clears the proposal; invalid output or failed examples record a short fixed failure reason. Matching output produces an overlay preview of the top five before/after and a chat summary of up to three rank changes. Type `!adopt` to apply it or `!reject` to discard it. Pending rules expire after 120 seconds, and restart re-arms that deadline. If interrupted between proposal and audit writes, adoption stays disabled until rejection or expiry.
+
+Adoption **re-scores the entire stream**, including earlier dares and overrules. One rule is active at a time. `!rule reset` clears it (and any pending proposal), cancels acceptance of an in-flight result, and restores the original +1/0 scoring without Codex. Replacing a rule always starts from Ledger history, never from previously accumulated points.
+
+The only hook is `points(ctx)`: `{ correct, yes, success, overruled, yesCount, noCount, target, progress }`. The first four fields are booleans; the rest are integers. Counts refer to the final predictions on that dare; `target` is the kill target, not an object. No identities or text enter the scoring context. The body is limited to 600 characters, ban-list checked, compiled/cached once per rule, and evaluated in `node:vm` with a frozen input, disabled string/Wasm code generation, and a 50 ms timeout. Throws, timeouts, and results outside integer −10…10 score zero and log once per rule per process. Replay reports errors as data; logging happens outside replay.
+
+`node:vm` is a demo shortcut, **not a security boundary**. Rules are broadcaster-only and Codex-generated, behind the ban-list and audit. Move execution to a worker or isolate before accepting rules from anyone else. The audit establishes agreement on the tested cases; the streamer still decides whether to adopt the interpretation.
 
 ## OBS overlay
 
@@ -78,9 +102,9 @@ The single HTML file uses the reference's Barlow Condensed, Inter, and JetBrains
 
 ## Ledger and restart behavior
 
-`.data/ledger.jsonl` stores `{ seq, at, agent, type, data }` records. State is derived only by pure `replay`: current dare and tallies, one-based winning option, progress, per-user fan scores, and the last 20 events. Ties (including no votes) select the lowest option number. A correct final prediction earns +1 per dare; overrules recalculate that score without double-crediting.
+`.data/ledger.jsonl` stores `{ seq, at, agent, type, data }` records. State is derived only by pure `replay`: current dare and tallies, one-based winning option, progress, per-user fan scores, and the last 20 events. Ties (including no votes) select the lowest option number. By default a correct final prediction earns +1 per dare; an adopted house rule replaces that hook retroactively; overrules recalculate that score without double-crediting.
 
-The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes only from the streamer's manual `!kill` for now.
+The run deadline starts after voting ends. Restarting, including `tsx watch` reloads, replays history and restores timers. Expired dare and rule proposals are discarded; expired votes lock immediately; expired dares resolve immediately. A target reached before shutdown still resolves successfully after restart. Late commands never extend a deadline. Progress comes only from the streamer's manual `!kill` for now.
 
 Both modes share `.data/ledger.jsonl`. Run only one process at a time. To reset a demo, stop it and move that file aside as a backup before restarting. The writer does not silently discard corrupt or partial records; an incomplete final line needs repair before restart. Bot messages are best-effort and are not replayed as a delivery queue.
 
@@ -135,7 +159,7 @@ npm run typecheck
 npm test
 ```
 
-Tests use `node:test`, mocked fetch/WebSockets, temporary token files, and controlled clocks. They do not contact Twitch or require `.env`. Coverage includes config, commands and permissions, Ledger replay and persistence, fan scoring and overrules, dare deadlines and restart recovery, mock HTTP input, crowd simulation, OAuth callbacks, token rotation, HTTP requests, rate limiting, and EventSub lifecycle handling.
+Tests use `node:test`, mocked fetch/WebSockets, temporary token files, and controlled clocks. They do not contact Twitch, spawn Codex, or require `.env`. Rule tests inject the runner and use the real VM with synthetic contexts. Coverage includes config, commands and permissions, Ledger replay and persistence, fan scoring and overrules, dare deadlines and restart recovery, mock HTTP input, crowd simulation, OAuth callbacks, token rotation, HTTP requests, rate limiting, and EventSub lifecycle handling.
 
 Real Twitch credentials are required to verify browser consent and callback delivery, both grants, live token refresh, EventSub chat delivery, actual chat replies and badge display, and Twitch-driven reconnects/revocations. A quick live check is to send `!ping`, `!race`, and an unknown command from a viewer account, confirm exactly two replies, then send `!ping` from the bot account and confirm no reply.
 

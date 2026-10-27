@@ -1,3 +1,4 @@
+import { rankedFans, type FanScores } from './rules.js';
 import type { RaceState } from './ledger.js';
 
 export function toOverlayView(state: RaceState, now: number) {
@@ -9,9 +10,16 @@ export function toOverlayView(state: RaceState, now: number) {
   const no = predictions.length - yes;
   const percent = (count: number, total: number) => total ? Math.round(count / total * 100) : 0;
   const yesPercent = percent(yes, predictions.length);
+  const top = (scores: FanScores) => rankedFans(scores).slice(0, 5).map(({ login, score }) => ({ login, score }));
   // Explicit public fields only: never spread state, raw events, or user maps.
   return {
     serverNow: now,
+    houseRule: state.activeRule?.text ?? null,
+    pendingRule: state.pendingRule ? {
+      text: state.pendingRule.text, expiresAt: state.pendingRule.expiresAt,
+      audit: state.pendingRule.audit ? { cases: state.pendingRule.audit.cases, mismatches: state.pendingRule.audit.mismatches } : null,
+      before: top(state.fanScores), after: top(state.previewScores ?? state.fanScores),
+    } : null,
     dare: proposal ? {
       title: proposal.title, status: 'proposed' as const, stakes: proposal.stakes, source: proposal.source,
       options: proposal.options.map(title => ({ title, tally: 0, percent: 0 })),
@@ -26,8 +34,7 @@ export function toOverlayView(state: RaceState, now: number) {
       success: dare.success ?? null, overruled: dare.overruled ?? false,
     } : null,
     predictions: { yes: { count: yes, percent: yesPercent }, no: { count: no, percent: predictions.length ? 100 - yesPercent : 0 } },
-    topFans: Object.values(state.fanScores).map(fan => ({ login: fan.login, score: fan.score }))
-      .sort((a, b) => b.score - a.score || (a.login < b.login ? -1 : a.login > b.login ? 1 : 0)).slice(0, 5),
+    topFans: top(state.fanScores),
     agentStrip: state.agentStrip.map(item => ({ agent: item.agent, text: item.text })),
     chatEventCount: state.chatEventCount,
   };

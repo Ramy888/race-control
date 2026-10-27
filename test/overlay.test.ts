@@ -257,3 +257,36 @@ test('inline renderer handles all phases safely and reconnects with backoff with
   assert.equal(delays.at(-1), 1000);
   assert.match(node('connection').textContent, /RECONNECTING/);
 });
+
+test('inline rule card uses literal text and shows before/after, audit and house rule', async () => {
+  const { createContext, runInContext } = await import('node:vm');
+  class Node {
+    textContent = ''; hidden = true; className = ''; style = {}; children: Node[] = [];
+    classList = { toggle: () => {} };
+    append(...nodes: Node[]) { this.children.push(...nodes); }
+    replaceChildren(...nodes: Node[]) { this.children = nodes; }
+  }
+  const nodes = new Map<string, Node>();
+  const node = (id: string) => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id)!; };
+  const context = createContext({ document: { getElementById: node, createElement: () => new Node() },
+    innerWidth: 1920, innerHeight: 1080, addEventListener: () => {}, location: { protocol: 'http:', host: 'localhost:3000' },
+    WebSocket: class {}, setTimeout: () => {},
+  });
+  const html = await readFile(new URL('../public/overlay.html', import.meta.url), 'utf8');
+  runInContext(html.match(/<script>([\s\S]*?)<\/script>/)![1]!, context);
+  const view = toOverlayView(replay([]), 1000);
+  view.houseRule = '<script>literal</script>';
+  view.pendingRule = { text: 'Wrong calls lose a point', expiresAt: iso(120_000), audit: { cases: 2304, mismatches: 0 },
+    before: [{ login: '<img src=x>', score: 1 }], after: [{ login: 'bob', score: 2 }] };
+  context.view = view;
+  runInContext('render(view)', context);
+  assert.equal(node('house-rule').textContent, 'HOUSE RULE: <script>literal</script>');
+  assert.equal(node('rule-audit').textContent, 'Auditor ✓ 2304/2304');
+  assert.equal(node('rule-before').children[0]?.textContent, '1. <img src=x> · 1 pts');
+  assert.equal(node('rule-after').children[0]?.textContent, '1. bob · 2 pts');
+  assert.equal(node('rule-expiry').textContent, 'Expires in 119s');
+  view.pendingRule.audit!.mismatches = 1; runInContext('render(view)', context);
+  assert.equal(node('rule-audit').textContent, 'Auditor ✗');
+  view.pendingRule = null; view.houseRule = null; runInContext('render(view)', context);
+  assert.equal(node('rule-card').hidden, true); assert.equal(node('house-rule').hidden, true);
+});

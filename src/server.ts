@@ -40,8 +40,8 @@ export function publishOverlay(ledger: Pick<Ledger, 'state' | 'onAppend'>, socke
   const unsubscribe = ledger.onAppend(broadcast);
   const interval = setInterval(() => {
     if (!sockets.clients.size) return;
-    const dare = ledger.state.currentDare;
-    if (ledger.state.proposal || (dare && dare.status !== 'resolved')) broadcast();
+    const { currentDare: dare, proposal, pendingRule } = ledger.state;
+    if (pendingRule || proposal || (dare && dare.status !== 'resolved')) broadcast();
   }, 1000);
   return () => { clearInterval(interval); unsubscribe(); sockets.off('connection', connected); };
 }
