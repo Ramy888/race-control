@@ -245,4 +245,38 @@ Real Twitch credentials are required to verify browser consent and callback deli
 
 ## How Codex was used
 
-TODO
+Codex plays two roles: it built Race Control, and it runs inside it as three of the agents.
+
+### 1. Codex built the app
+
+All the code was written in one Codex CLI thread (`gpt-6-astra`), session `01a1731b-46b4-7161-97bd-ea0f9269fbcb`, from Oct 25 to Oct 27, one task per turn:
+
+| Task | Effort | Commit |
+| --- | --- | --- |
+| Twitch chatbot skeleton, EventSub, Helix chat | high | `f42fd05` |
+| Ledger, dare loop, mock mode, crowd simulator | medium | `f42fd05` |
+| OBS overlay (live dare, predictions, agent feed) | medium | `d0b6818` |
+| AI Game Master, streamer approval, easier voting | medium | `48fffa9` |
+| Rules Compiler and Auditor | high | `b4899e5` |
+| Watcher (OBS frames + macOS Vision OCR) | medium | `b98a90d` |
+| HUD-safe overlay layout and README | medium | `bc14dc2` |
+
+Each task was a written brief covering scope, interfaces, safety rules, tests and the gates `npm run typecheck` and `npm test`. Codex wrote the code and the tests and ran the gates itself: about 2,100 lines of source and 1,900 lines of tests (90 tests). Standing repo rules told it to follow the official Twitch docs, never print secrets, test every non-trivial function, and never commit.
+
+A human reviewed every diff and re-ran the gates before committing, with Claude Code as the reviewer. Live tests on Twitch and OBS found four problems, each fixed with a test that failed first:
+- Generated rule code could reach the host's `Function` through the scoring context's prototype. The context now has a null prototype.
+- The rule prompt let models put prose inside `code`. The prompt now defines every field, and a real compile then matched 2,304/2,304 cases.
+- Vision's accurate mode drops a lone `0` on the HUD. The OCR helper now falls back to the fast mode.
+- Local routes returned 404 when a URL had a query string, which OBS Browser Sources can add.
+
+### 2. Codex runs inside the product
+
+Three agents call `codex exec` at runtime. They pass the arguments as an array (no shell) and run with `--ignore-user-config --ephemeral -s read-only --skip-git-repo-check --output-schema …`. Each run has a timeout, its temporary output is deleted afterwards, and its JSON is validated strictly.
+
+| Agent | Model | What Codex does |
+| --- | --- | --- |
+| Game Master | `gpt-6-luna`, low effort | Writes a dare (title, options, kill target, stakes) in about 6 s. The prompt holds only trusted context, never chat text. If the call fails, the dare falls back to a sample. The streamer approves or rerolls it. |
+| Rules Compiler | `gpt-6-luna`, low effort | Turns the streamer's plain-English rule (e.g. "wrong calls lose a point") into a scoring function body plus worked examples. |
+| Auditor | `gpt-6-sol`, low effort | Writes its own implementation of the same rule without seeing the compiler's. The two must agree on every past prediction in the Ledger and on 2,304 synthetic cases before the streamer can `!adopt` the rule. |
+
+For example, for "underdogs score double", the two models wrote differently shaped code that agreed on all 2,304 cases. That agreement is what the overlay shows as "Audit passed 2304/2304".
